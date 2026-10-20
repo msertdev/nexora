@@ -1,0 +1,106 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [citext]
+}
+
+enum MembershipRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum IssueStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum IssuePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model User {
+  id             String       @id @default(uuid()) @db.Uuid
+  email          String       @unique @db.Citext
+  name           String
+  passwordHash   String?
+  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @db.Timestamptz(6)
+  memberships    Membership[]
+  assignedIssues Issue[]      @relation("IssueAssignee")
+}
+
+model Organization {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String
+  slug        String       @unique
+  createdAt   DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
+  memberships Membership[]
+  projects    Project[]
+}
+
+model Membership {
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @db.Uuid
+  organizationId String         @db.Uuid
+  role           MembershipRole @default(MEMBER)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(6)
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+model Project {
+  id              String       @id @default(uuid()) @db.Uuid
+  organizationId  String       @db.Uuid
+  name            String
+  key             String       @db.VarChar(10)
+  lastIssueNumber Int          @default(0)
+  createdAt       DateTime     @default(now()) @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @db.Timestamptz(6)
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  issues          Issue[]
+
+  @@unique([organizationId, key])
+}
+
+model Issue {
+  id          String        @id @default(uuid()) @db.Uuid
+  projectId   String        @db.Uuid
+  issueNumber Int
+  title       String
+  description String?
+  status      IssueStatus   @default(BACKLOG)
+  priority    IssuePriority @default(MEDIUM)
+  assigneeId  String?       @db.Uuid
+  dueDate     DateTime?     @db.Date
+  createdAt   DateTime      @default(now()) @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @db.Timestamptz(6)
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee    User?         @relation("IssueAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, issueNumber])
+  @@index([projectId, status])
+  @@index([assigneeId])
+  @@index([dueDate])
+}

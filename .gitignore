@@ -36,3 +36,19 @@ yarn-error.log*
 # Misc
 .DS_Store
 *.pem
+
+# Generated Prisma tooling
+/apps/api/.agents/skills/
+/apps/api/.claude/skills/
+/apps/api/.windsurf/skills/
+/apps/api/skills-lock.json
+
+# Generated Prisma Client
+/apps/api/src/generated/prisma/
+
+# Local secrets
+.env
+**/.env
+**/.env.local
+
+*.tsbuildinfo
