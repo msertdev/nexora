@@ -8,8 +8,11 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
+import { useRouter } from "next/navigation";
 
 import { useLocalStorage } from "../hooks/use-local-storage";
+import { apiClient, ApiError } from "../lib/api-client";
+import { useAuth } from "./auth-provider";
 import {
   defaultTasks,
   priorityMeta,
@@ -44,7 +47,6 @@ type IconName =
 const STORAGE_KEY = "nexora.workspace.tasks";
 const THEME_KEY = "nexora.workspace.theme";
 const statusOrder: TaskStatus[] = ["backlog", "in-progress", "review", "done"];
-const currentAssignee = "A. Berger";
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -53,14 +55,14 @@ function formatDate(value: string) {
   }).format(new Date(value));
 }
 
-function getEmptyDraft(): TaskDraft {
+function getEmptyDraft(assignee: string): TaskDraft {
   const dueDate = new Date();
   dueDate.setDate(dueDate.getDate() + 7);
   return {
     title: "",
     description: "",
     project: projectOptions[0] ?? "NEXORA",
-    assignee: currentAssignee,
+    assignee,
     status: "backlog",
     priority: "Medium",
     due: dueDate.toISOString().slice(0, 10),
@@ -237,15 +239,21 @@ function IssueGroup({
 function Sidebar({
   view,
   taskCount,
+  userName,
+  loggingOut,
   onNavigate,
   onCreate,
   onSearch,
+  onLogout,
 }: {
   view: WorkspaceView;
   taskCount: number;
+  userName: string;
+  loggingOut: boolean;
   onNavigate: (nextView: WorkspaceView) => void;
   onCreate: () => void;
   onSearch: () => void;
+  onLogout: () => void;
 }) {
   const navigation: { id: WorkspaceView; label: string; icon: IconName }[] = [
     { id: "inbox", label: "Inbox", icon: "inbox" },
@@ -304,9 +312,26 @@ function Sidebar({
       </div>
 
       <div className="sidebar-footer">
-        <div className="avatar">AB</div>
-        <div className="sidebar-footer__user"><strong>A. Berger</strong><span>Personal workspace</span></div>
-        <button type="button" className="sidebar-footer__more" aria-label="Workspace options">•••</button>
+        <div className="avatar" aria-hidden="true">
+          {userName
+            .trim()
+            .split(/\s+/)
+            .slice(0, 2)
+            .map((part) => part[0]?.toUpperCase())
+            .join("")}
+        </div>
+        <div className="sidebar-footer__user">
+          <strong>{userName}</strong>
+          <span>Personal workspace</span>
+        </div>
+        <button
+          type="button"
+          className="sidebar-footer__logout"
+          onClick={onLogout}
+          disabled={loggingOut}
+        >
+          {loggingOut ? "Signing out…" : "Log out"}
+        </button>
       </div>
     </aside>
   );
@@ -419,8 +444,12 @@ function TaskDetailPanel({
 }
 
 export function IssueWorkspace() {
+  const { user, setUser } = useAuth();
+  const router = useRouter();
   const { value: tasks, setValue: setTasks, ready: tasksReady, error: tasksError } = useLocalStorage<Task[]>(STORAGE_KEY, defaultTasks);
   const { value: theme, setValue: setTheme, ready: themeReady } = useLocalStorage<ThemeMode>(THEME_KEY, "dark");
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
   const [view, setView] = useState<WorkspaceView>("inbox");
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -431,7 +460,7 @@ export function IssueWorkspace() {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<TaskDraft>(getEmptyDraft());
+  const [draft, setDraft] = useState<TaskDraft>(getEmptyDraft(user?.name ?? ""));
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -448,10 +477,10 @@ export function IssueWorkspace() {
       const matchesSearch = !normalizedSearch || [task.title, task.description, task.assignee, task.project].join(" ").toLowerCase().includes(normalizedSearch);
       const matchesProject = projectFilter === "All projects" || task.project === projectFilter;
       const matchesPriority = priorityFilter === "All priorities" || task.priority === priorityFilter;
-      const matchesAssignee = view !== "my-issues" || task.assignee === currentAssignee;
+      const matchesAssignee = view !== "my-issues" || task.assignee === user?.name;
       return matchesSearch && matchesProject && matchesPriority && matchesAssignee;
     });
-  }, [priorityFilter, projectFilter, searchTerm, tasks, view]);
+  }, [priorityFilter, projectFilter, searchTerm, tasks, user?.name, view]);
 
   const reviewTasks = filteredTasks.filter((task) => task.status === "review");
   const todoTasks = filteredTasks.filter((task) => task.status === "backlog" || task.status === "in-progress");
@@ -463,7 +492,7 @@ export function IssueWorkspace() {
 
   function openCreateModal() {
     setEditingTaskId(null);
-    setDraft(getEmptyDraft());
+    setDraft(getEmptyDraft(user?.name ?? ""));
     setIsEditorOpen(true);
   }
 
@@ -495,7 +524,25 @@ export function IssueWorkspace() {
     setIsDetailOpen(false);
     setIsEditorOpen(false);
     setEditingTaskId(null);
-    setDraft(getEmptyDraft());
+    setDraft(getEmptyDraft(user?.name ?? ""));
+  }
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    setLogoutError("");
+    try {
+      await apiClient.logout();
+      setUser(null);
+      router.replace("/login");
+    } catch (error) {
+      setLogoutError(
+        error instanceof ApiError
+          ? error.message
+          : "Unable to sign out. Please try again.",
+      );
+    } finally {
+      setLoggingOut(false);
+    }
   }
 
   function handleDeleteTask(task: Task) {
@@ -560,6 +607,8 @@ export function IssueWorkspace() {
           <Sidebar
             view={view}
             taskCount={activeCount}
+            userName={user?.name ?? ""}
+            loggingOut={loggingOut}
             onNavigate={(nextView) => {
               setView(nextView);
               setFiltersOpen(nextView === "views");
@@ -567,9 +616,15 @@ export function IssueWorkspace() {
             }}
             onCreate={openCreateModal}
             onSearch={toggleSearch}
+            onLogout={() => void handleLogout()}
           />
 
           <section className="workspace-main">
+            {logoutError ? (
+              <div className="workspace-error" role="alert">
+                {logoutError}
+              </div>
+            ) : null}
             <nav className="mobile-nav" aria-label="Workspace views">
               {([
                 ["inbox", "Inbox"],
@@ -591,6 +646,14 @@ export function IssueWorkspace() {
                   {label}
                 </button>
               ))}
+              <button
+                type="button"
+                className="mobile-nav__logout"
+                onClick={() => void handleLogout()}
+                disabled={loggingOut}
+              >
+                {loggingOut ? "Signing out…" : "Log out"}
+              </button>
             </nav>
 
             {isSearchOpen ? (
