@@ -14,5 +14,6 @@ import { OrganizationsService } from './organizations.service.js';
     OrganizationMembershipGuard,
     OrganizationRoleGuard,
   ],
+  exports: [OrganizationMembershipGuard, OrganizationRoleGuard],
 })
 export class OrganizationsModule {}
