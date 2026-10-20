@@ -1,3 +1,5 @@
+import type { MembershipRole } from '../generated/prisma/enums.js';
+
 export type SafeUser = {
   id: string;
   email: string;
@@ -11,5 +13,9 @@ export type AuthenticatedRequest = {
   auth?: {
     sessionId: string;
     user: SafeUser;
+    organizationMembership?: {
+      organizationId: string;
+      role: MembershipRole;
+    };
   };
 };

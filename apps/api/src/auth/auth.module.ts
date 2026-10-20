@@ -9,5 +9,6 @@ import { SessionAuthGuard } from './session-auth.guard.js';
   imports: [ConfigModule, PrismaModule],
   controllers: [AuthController],
   providers: [AuthService, SessionAuthGuard],
+  exports: [SessionAuthGuard],
 })
 export class AuthModule {}
