@@ -4,6 +4,22 @@ export type SafeUser = {
   name: string;
 };
 
+export type MembershipRole = "OWNER" | "ADMIN" | "MEMBER";
+
+export type Organization = {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: string;
+  updatedAt: string;
+  role: MembershipRole;
+};
+
+export type OrganizationMember = {
+  role: MembershipRole;
+  user: SafeUser;
+};
+
 type AuthInput = {
   email: string;
   password: string;
@@ -55,14 +71,16 @@ async function request<T>(
       503: "Authentication is temporarily unavailable. Please try again.",
     };
 
-    let serverMessage: unknown;
+    let serverMessage: string | string[] | undefined;
     try {
       const body: unknown = await response.json();
       if (
         typeof body === "object" &&
         body !== null &&
         "message" in body &&
-        typeof body.message === "string"
+        (typeof body.message === "string" ||
+          (Array.isArray(body.message) &&
+            body.message.every((item) => typeof item === "string")))
       ) {
         serverMessage = body.message;
       }
@@ -70,12 +88,21 @@ async function request<T>(
       serverMessage = undefined;
     }
 
+    const firstServerMessage = Array.isArray(serverMessage)
+      ? serverMessage[0]
+      : serverMessage;
     const message =
       response.status === 401 && serverMessage === "Invalid email or password"
         ? "Email or password is incorrect."
         : response.status === 409 &&
             serverMessage === "Unable to register with these details"
           ? "An account with this email already exists. Try signing in instead."
+          : response.status === 409 &&
+              serverMessage ===
+                "Unable to create an organization with that name"
+            ? "That workspace name is already in use. Try another."
+            : response.status === 400 && firstServerMessage
+              ? firstServerMessage
           : messageByStatus[response.status] ??
             "Something went wrong. Please try again.";
 
@@ -114,5 +141,22 @@ export const apiClient = {
 
   logout() {
     return request<void>("/api/auth/logout", { method: "POST" });
+  },
+
+  organizations() {
+    return request<Organization[]>("/api/organizations");
+  },
+
+  createOrganization(input: { name: string }) {
+    return request<Organization>("/api/organizations", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  organizationMembers(organizationId: string) {
+    return request<OrganizationMember[]>(
+      `/api/organizations/${encodeURIComponent(organizationId)}/members`,
+    );
   },
 };

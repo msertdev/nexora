@@ -14,6 +14,13 @@ import { useLocalStorage } from "../hooks/use-local-storage";
 import { apiClient, ApiError } from "../lib/api-client";
 import { useAuth } from "./auth-provider";
 import {
+  CreateWorkspaceDialog,
+  CreateWorkspaceOnboarding,
+  MembersDialog,
+  WorkspaceSwitcher,
+} from "./workspace-management";
+import { useWorkspaces } from "./workspace-provider";
+import {
   defaultTasks,
   priorityMeta,
   projectOptions,
@@ -241,6 +248,7 @@ function Sidebar({
   taskCount,
   userName,
   loggingOut,
+  onOpenWorkspaceDialog,
   onNavigate,
   onCreate,
   onSearch,
@@ -250,6 +258,7 @@ function Sidebar({
   taskCount: number;
   userName: string;
   loggingOut: boolean;
+  onOpenWorkspaceDialog: (dialog: "create" | "members" | null) => void;
   onNavigate: (nextView: WorkspaceView) => void;
   onCreate: () => void;
   onSearch: () => void;
@@ -304,11 +313,9 @@ function Sidebar({
         ))}
       </nav>
 
-      <div className="team-section">
-        <div className="team-section__label">Your teams</div>
-        <div className="team-row"><Icon name="chevron" /><span>Design</span></div>
-        <div className="team-row team-row--active"><Icon name="chevron" /><span>Engineering</span><Icon name="lock" className="team-row__lock" /><span className="team-row__more">•••</span></div>
-        <div className="team-row"><Icon name="chevron" /><span>X Dev</span></div>
+      <div className="workspace-sidebar__switcher">
+        <span className="workspace-sidebar__switcher-label">WORKSPACES</span>
+        <WorkspaceSwitcher onOpenDialog={onOpenWorkspaceDialog} />
       </div>
 
       <div className="sidebar-footer">
@@ -322,7 +329,7 @@ function Sidebar({
         </div>
         <div className="sidebar-footer__user">
           <strong>{userName}</strong>
-          <span>Personal workspace</span>
+          <span>Signed in</span>
         </div>
         <button
           type="button"
@@ -351,6 +358,7 @@ function IssueToolbar({
   onCreate,
   onSearch,
   onThemeToggle,
+  onOpenWorkspaceDialog,
 }: {
   count: number;
   theme: ThemeMode;
@@ -365,6 +373,7 @@ function IssueToolbar({
   onCreate: () => void;
   onSearch: () => void;
   onThemeToggle: () => void;
+  onOpenWorkspaceDialog: (dialog: "create" | "members" | null) => void;
 }) {
   return (
     <header className="issue-toolbar">
@@ -373,6 +382,11 @@ function IssueToolbar({
         <span className="issue-toolbar__count">{count}</span>
       </div>
       <div className="issue-toolbar__actions">
+        <WorkspaceSwitcher
+          compact
+          mobileOnly
+          onOpenDialog={onOpenWorkspaceDialog}
+        />
         <button type="button" className="mobile-toolbar-button" onClick={onSearch} aria-label="Search issues"><Icon name="search" /></button>
         <button type="button" className="mobile-toolbar-button" onClick={onCreate} aria-label="Create issue"><Icon name="plus" /></button>
         <button type="button" className="theme-switch" onClick={onThemeToggle} aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} theme`} title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}>
@@ -445,11 +459,15 @@ function TaskDetailPanel({
 
 export function IssueWorkspace() {
   const { user, setUser } = useAuth();
+  const workspaces = useWorkspaces();
   const router = useRouter();
   const { value: tasks, setValue: setTasks, ready: tasksReady, error: tasksError } = useLocalStorage<Task[]>(STORAGE_KEY, defaultTasks);
   const { value: theme, setValue: setTheme, ready: themeReady } = useLocalStorage<ThemeMode>(THEME_KEY, "dark");
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
+  const [workspaceDialog, setWorkspaceDialog] = useState<
+    "create" | "members" | null
+  >(null);
   const [view, setView] = useState<WorkspaceView>("inbox");
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -532,6 +550,7 @@ export function IssueWorkspace() {
     setLogoutError("");
     try {
       await apiClient.logout();
+      workspaces.clearSelection();
       setUser(null);
       router.replace("/login");
     } catch (error) {
@@ -599,6 +618,7 @@ export function IssueWorkspace() {
               onCreate={openCreateModal}
               onSearch={toggleSearch}
               onThemeToggle={() => setTheme((current) => current === "dark" ? "light" : "dark")}
+              onOpenWorkspaceDialog={setWorkspaceDialog}
             />
           </div>
         </div>
@@ -609,6 +629,7 @@ export function IssueWorkspace() {
             taskCount={activeCount}
             userName={user?.name ?? ""}
             loggingOut={loggingOut}
+            onOpenWorkspaceDialog={setWorkspaceDialog}
             onNavigate={(nextView) => {
               setView(nextView);
               setFiltersOpen(nextView === "views");
@@ -625,6 +646,15 @@ export function IssueWorkspace() {
                 {logoutError}
               </div>
             ) : null}
+            {!workspaces.selectedOrganization ? (
+              <CreateWorkspaceOnboarding
+                onCreate={() => setWorkspaceDialog("create")}
+                loading={workspaces.status === "loading"}
+                error={workspaces.error}
+                onRetry={() => void workspaces.refresh()}
+              />
+            ) : (
+              <>
             <nav className="mobile-nav" aria-label="Workspace views">
               {([
                 ["inbox", "Inbox"],
@@ -655,6 +685,14 @@ export function IssueWorkspace() {
                 {loggingOut ? "Signing out…" : "Log out"}
               </button>
             </nav>
+
+            <div className="workspace-preview-notice" role="note">
+              <strong>Local preview</strong>
+              <span>
+                These sample tasks are saved in this browser and are not connected
+                to {workspaces.selectedOrganization.name}.
+              </span>
+            </div>
 
             {isSearchOpen ? (
               <div className="search-strip">
@@ -698,6 +736,8 @@ export function IssueWorkspace() {
                 {filteredTasks.length === 0 ? <div className="list-empty">No issues match this view.</div> : null}
               </div>
             )}
+              </>
+            )}
           </section>
         </div>
 
@@ -739,6 +779,15 @@ export function IssueWorkspace() {
             </form>
           </section>
         </div>
+      ) : null}
+
+      {workspaceDialog === "create" ? (
+        <CreateWorkspaceDialog
+          onClose={() => setWorkspaceDialog(null)}
+        />
+      ) : null}
+      {workspaceDialog === "members" ? (
+        <MembersDialog onClose={() => setWorkspaceDialog(null)} />
       ) : null}
     </main>
   );
