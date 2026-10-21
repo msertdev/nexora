@@ -294,12 +294,26 @@ describe('Project and issue endpoints', () => {
 
   it('allows a MEMBER to edit permitted fields of an issue in their organization', async () => {
     prismaMock.membership.findUnique.mockResolvedValue({ role: 'MEMBER' });
+    prismaMock.issue.findFirst.mockResolvedValueOnce({
+      ...issue,
+      status: 'IN_PROGRESS',
+      priority: 'HIGH',
+    });
     await patch(`${issuesPath}/${issueId}`)
-      .send({ status: 'IN_PROGRESS' })
-      .expect(200);
+      .send({ status: 'IN_PROGRESS', priority: 'HIGH' })
+      .expect(200)
+      .expect((response) => {
+        expect(response.body.status).toBe('IN_PROGRESS');
+        expect(response.body.priority).toBe('HIGH');
+        expect(response.body.identifier).toBe('PLAT-1');
+      });
     expect(transaction.issue.updateMany).toHaveBeenCalledWith({
       where: { id: issueId, projectId },
-      data: { status: 'IN_PROGRESS', dueDate: undefined },
+      data: {
+        status: 'IN_PROGRESS',
+        priority: 'HIGH',
+        dueDate: undefined,
+      },
     });
   });
 
