@@ -11,6 +11,7 @@ import { ConfigService } from '@nestjs/config';
 import { createHash, randomBytes } from 'node:crypto';
 import { MembershipRole, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { EmailDeliveryService } from '../auth/email-delivery.service.js';
 
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const SAFE_INVITATION_FIELDS = {
@@ -41,7 +42,8 @@ function isHttpError(error: unknown) {
     error instanceof ConflictException ||
     error instanceof ForbiddenException ||
     error instanceof GoneException ||
-    error instanceof NotFoundException
+    error instanceof NotFoundException ||
+    error instanceof ServiceUnavailableException
   );
 }
 
@@ -50,6 +52,7 @@ export class TeamCollaborationService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly emailDelivery: EmailDeliveryService,
   ) {}
 
   async createInvitation(
@@ -133,16 +136,58 @@ export class TeamCollaborationService {
               tokenHash,
               expiresAt,
             },
-            select: SAFE_INVITATION_FIELDS,
+            select: {
+              ...SAFE_INVITATION_FIELDS,
+              organization: { select: { name: true } },
+            },
           });
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       );
 
-      const origin = this.config.getOrThrow<string>('FRONTEND_ORIGIN');
-      const invitationUrl = new URL('/invitations/accept', origin);
-      invitationUrl.hash = new URLSearchParams({ token }).toString();
-      return { ...invitation, invitationLink: invitationUrl.toString() };
+      let invitationUrl: URL;
+      try {
+        const origin = this.config.getOrThrow<string>('PUBLIC_APP_URL');
+        invitationUrl = new URL('/invitations/accept', origin);
+        invitationUrl.hash = new URLSearchParams({ token }).toString();
+        await this.emailDelivery.sendInvitation(
+          email,
+          invitation.organization.name,
+          invitation.invitedBy.name,
+          roleInput,
+          invitationUrl.toString(),
+        );
+      } catch {
+        try {
+          await this.prisma.invitation.updateMany({
+            where: {
+              id: invitation.id,
+              acceptedAt: null,
+              revokedAt: null,
+            },
+            data: { revokedAt: new Date() },
+          });
+        } catch {
+          throw new ServiceUnavailableException(
+            'Invitation email could not be delivered',
+          );
+        }
+        throw new ServiceUnavailableException(
+          'Invitation email could not be delivered',
+        );
+      }
+      return {
+        id: invitation.id,
+        organizationId: invitation.organizationId,
+        email: invitation.email,
+        role: invitation.role,
+        expiresAt: invitation.expiresAt,
+        acceptedAt: invitation.acceptedAt,
+        revokedAt: invitation.revokedAt,
+        createdAt: invitation.createdAt,
+        invitedBy: invitation.invitedBy,
+        invitationLink: invitationUrl.toString(),
+      };
     } catch (error) {
       if (isHttpError(error)) throw error;
       if (isPrismaError(error, 'P2002') || isPrismaError(error, 'P2034')) {

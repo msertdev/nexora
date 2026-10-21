@@ -60,12 +60,12 @@ export class EmailVerificationService {
       throw new ServiceUnavailableException('Email verification unavailable');
     }
 
-    const verificationUrl = new URL(
-      '/verify-email',
-      this.config.getOrThrow<string>('FRONTEND_ORIGIN'),
-    );
-    verificationUrl.hash = new URLSearchParams({ token }).toString();
     try {
+      const verificationUrl = new URL(
+        '/verify-email',
+        this.config.getOrThrow<string>('PUBLIC_APP_URL'),
+      );
+      verificationUrl.hash = new URLSearchParams({ token }).toString();
       await this.emailDelivery.sendVerificationLink(
         user.email,
         verificationUrl.toString(),
@@ -81,7 +81,8 @@ export class EmailVerificationService {
           'Email verification could not be completed',
         );
       }
-      throw error;
+      if (error instanceof ServiceUnavailableException) throw error;
+      throw new ServiceUnavailableException('Email delivery unavailable');
     }
     return { status: 'sent' as const };
   }

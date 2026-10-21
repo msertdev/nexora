@@ -16,6 +16,6 @@ import { SessionAuthGuard } from './session-auth.guard.js';
     EmailDeliveryService,
     EmailVerificationService,
   ],
-  exports: [SessionAuthGuard],
+  exports: [SessionAuthGuard, EmailDeliveryService],
 })
 export class AuthModule {}

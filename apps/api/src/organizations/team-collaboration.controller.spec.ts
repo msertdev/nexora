@@ -1,10 +1,12 @@
 import { ValidationPipe } from '@nestjs/common';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
 import request from 'supertest';
 import type { App } from 'supertest/types.js';
 import { AppModule } from '../app.module.js';
+import { EmailDeliveryService } from '../auth/email-delivery.service.js';
 import { SESSION_COOKIE } from '../auth/session-token.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -61,6 +63,7 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
     invitation: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
+      updateMany: vi.fn(),
     },
     emailVerificationToken: {
       create: vi.fn(),
@@ -69,6 +72,10 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
     },
     $transaction: vi.fn(),
   };
+  const emailDeliveryMock = {
+    sendVerificationLink: vi.fn(),
+    sendInvitation: vi.fn(),
+  };
 
   beforeAll(async () => {
     const moduleFixture = await Test.createTestingModule({
@@ -76,6 +83,18 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
     })
       .overrideProvider(PrismaService)
       .useValue(prismaMock)
+      .overrideProvider(EmailDeliveryService)
+      .useValue(emailDeliveryMock)
+      .overrideProvider(ConfigService)
+      .useValue({
+        get: (key: string) =>
+          key === 'PUBLIC_APP_URL' ? 'http://localhost:3000' : undefined,
+        getOrThrow: (key: string) => {
+          if (key === 'PUBLIC_APP_URL') return 'http://localhost:3000';
+          if (key === 'FRONTEND_ORIGIN') return 'http://localhost:3000';
+          throw new Error(`Missing config ${key}`);
+        },
+      })
       .compile();
 
     app = moduleFixture.createNestApplication();
@@ -95,6 +114,8 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    emailDeliveryMock.sendVerificationLink.mockResolvedValue(undefined);
+    emailDeliveryMock.sendInvitation.mockResolvedValue(undefined);
     prismaMock.session.findFirst.mockResolvedValue({
       id: 'session-id',
       user: {
@@ -131,6 +152,7 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
         email: 'owner@example.com',
         name: 'Example Owner',
       },
+      organization: { name: 'NEXORA Studio' },
     }));
     transaction.invitation.updateMany.mockResolvedValue({ count: 1 });
     transaction.membership.create.mockResolvedValue({ id: 'membership-id' });
@@ -197,6 +219,13 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
     expect(
       transaction.invitation.create.mock.calls[0]?.[0].data.tokenHash,
     ).not.toBe(token);
+    expect(emailDeliveryMock.sendInvitation).toHaveBeenCalledWith(
+      'invitee@example.com',
+      'NEXORA Studio',
+      'Example Owner',
+      'MEMBER',
+      expect.stringContaining('#token='),
+    );
   });
 
   it('allows ADMIN to invite MEMBER but denies ADMIN invitation and MEMBER invitations', async () => {
@@ -217,6 +246,30 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
     await authenticated('post', invitationPath)
       .send({ email: 'member2@example.com', role: 'MEMBER' })
       .expect(403);
+  });
+
+  it('revokes an invitation and returns a safe error when SMTP delivery fails', async () => {
+    emailDeliveryMock.sendInvitation.mockRejectedValueOnce(
+      new Error('SMTP error containing sensitive details'),
+    );
+
+    await authenticated('post', invitationPath)
+      .send({ email: 'invitee@example.com', role: 'MEMBER' })
+      .expect(503)
+      .expect(({ body }) => {
+        expect(body.message).toBe('Invitation email could not be delivered');
+        expect(JSON.stringify(body)).not.toContain('SMTP error');
+        expect(JSON.stringify(body)).not.toContain(rawInvitationToken);
+      });
+    expect(prismaMock.invitation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          acceptedAt: null,
+          revokedAt: null,
+        }),
+        data: { revokedAt: expect.any(Date) },
+      }),
+    );
   });
 
   it('does not expose invitation tokens in the pending invitation list', async () => {
@@ -283,6 +336,30 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
           acceptedAt: null,
           revokedAt: null,
         }),
+      }),
+    );
+  });
+
+  it('revokes an invitation and returns a safe error when SMTP delivery fails', async () => {
+    emailDeliveryMock.sendInvitation.mockRejectedValueOnce(
+      new Error('SMTP error containing sensitive details'),
+    );
+
+    await authenticated('post', invitationPath)
+      .send({ email: 'invitee@example.com', role: 'MEMBER' })
+      .expect(503)
+      .expect(({ body }) => {
+        expect(body.message).toBe('Invitation email could not be delivered');
+        expect(JSON.stringify(body)).not.toContain('SMTP error');
+        expect(JSON.stringify(body)).not.toContain(rawInvitationToken);
+      });
+    expect(prismaMock.invitation.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          acceptedAt: null,
+          revokedAt: null,
+        }),
+        data: { revokedAt: expect.any(Date) },
       }),
     );
   });
@@ -419,15 +496,50 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
     expect(prismaMock.$transaction).not.toHaveBeenCalled();
   });
 
-  it('never returns an email-verification secret when delivery is unavailable', async () => {
+  it('sends a verification link with a hashed token and no token in the API response', async () => {
+    prismaMock.user.findUnique.mockResolvedValue({
+      email: 'owner@example.com',
+      emailVerifiedAt: null,
+    });
+    prismaMock.emailVerificationToken.create.mockImplementation(
+      async ({ data }) => ({ id: 'verification-id', data }),
+    );
+
+    const response = await authenticated(
+      'post',
+      '/api/auth/email-verification/request',
+    )
+      .expect(201)
+      .expect(({ body }) => expect(body).toEqual({ status: 'sent' }));
+
+    expect(JSON.stringify(response.body)).not.toMatch(/[A-Za-z0-9_-]{40,}/);
+    const [recipient, link] =
+      emailDeliveryMock.sendVerificationLink.mock.calls[0] as [
+        string,
+        string,
+      ];
+    expect(recipient).toBe('owner@example.com');
+    const token = new URLSearchParams(new URL(link).hash.slice(1)).get('token');
+    expect(token).toBeTruthy();
+    const createCall = prismaMock.emailVerificationToken.create.mock.calls[0]![0];
+    expect(createCall.data.tokenHash).toBe(
+      createHash('sha256').update(token!).digest('hex'),
+    );
+    expect(createCall.data.tokenHash).not.toBe(token);
+    expect(createCall.data.expiresAt.getTime()).toBeGreaterThan(Date.now());
+  });
+
+  it('never returns an email-verification secret when delivery fails', async () => {
+    emailDeliveryMock.sendVerificationLink.mockRejectedValueOnce(
+      new Error('SMTP failure containing a token'),
+    );
     const response = await authenticated(
       'post',
       '/api/auth/email-verification/request',
     ).expect(503);
 
-    expect(response.body.message).toBe(
-      'Email verification delivery is not configured',
-    );
+    expect(response.body.message).toBe('Email delivery unavailable');
+    expect(JSON.stringify(response.body)).not.toContain('SMTP failure');
     expect(prismaMock.emailVerificationToken.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -474,5 +586,30 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
       data: { emailVerifiedAt: expect.any(Date) },
       select: { id: true },
     });
+  });
+
+  it('rejects expired and reused verification links', async () => {
+    const token = Buffer.alloc(32, 8).toString('base64url');
+    prismaMock.emailVerificationToken.findUnique.mockResolvedValue({
+      id: 'verification-id',
+      userId: ownerId,
+      expiresAt: new Date(Date.now() - 1),
+      usedAt: null,
+      revokedAt: null,
+    });
+    await authenticated('post', '/api/auth/email-verification/confirm')
+      .send({ token })
+      .expect(410);
+
+    prismaMock.emailVerificationToken.findUnique.mockResolvedValue({
+      id: 'verification-id',
+      userId: ownerId,
+      expiresAt: new Date(Date.now() + 60_000),
+      usedAt: new Date(),
+      revokedAt: null,
+    });
+    await authenticated('post', '/api/auth/email-verification/confirm')
+      .send({ token })
+      .expect(409);
   });
 });
