@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { apiClient, ApiError } from "../lib/api-client";
+import { safeAuthReturnTo } from "../lib/team-collaboration";
 import { useAuth } from "./auth-provider";
 
 type AuthFormProps = {
@@ -15,6 +16,8 @@ export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { setUser } = useAuth();
+  const returnTo = searchParams.get("returnTo");
+  const safeReturnTo = safeAuthReturnTo(returnTo);
   const isRegister = mode === "register";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -59,7 +62,11 @@ export function AuthForm({ mode }: AuthFormProps) {
           email: email.trim().toLowerCase(),
           password,
         });
-        router.replace("/login?registered=1");
+        router.replace(
+          safeReturnTo === "/"
+            ? "/login?registered=1"
+            : `/login?registered=1&returnTo=${encodeURIComponent(safeReturnTo)}`,
+        );
         return;
       }
 
@@ -68,7 +75,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         password,
       });
       setUser(user);
-      router.replace("/");
+      router.replace(safeReturnTo);
     } catch (requestError) {
       setError(
         requestError instanceof ApiError
@@ -248,7 +255,13 @@ export function AuthForm({ mode }: AuthFormProps) {
           </form>
           <p className="auth-switch">
             {isRegister ? "Already have an account?" : "New to NEXORA?"}{" "}
-            <Link href={isRegister ? "/login" : "/register"}>
+            <Link
+              href={`${isRegister ? "/login" : "/register"}${
+                safeReturnTo === "/"
+                  ? ""
+                  : `?returnTo=${encodeURIComponent(safeReturnTo)}`
+              }`}
+            >
               {isRegister ? "Sign in" : "Create an account"}
             </Link>
           </p>

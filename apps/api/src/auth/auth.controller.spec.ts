@@ -16,6 +16,7 @@ describe('Authentication endpoints', () => {
     id: 'c17013a8-1c2f-4b91-b7f2-d06c6b586c30',
     email: 'person@example.com',
     name: 'Example Person',
+    emailVerified: false,
   };
   const sessionToken = Buffer.alloc(32, 7).toString('base64url');
   const prismaMock = {
@@ -79,6 +80,7 @@ describe('Authentication endpoints', () => {
       id: user.id,
       email: data.email,
       name: data.name,
+      emailVerifiedAt: null,
     }));
 
     const response = await request(app.getHttpServer())
@@ -138,6 +140,7 @@ describe('Authentication endpoints', () => {
     prismaMock.user.findUnique.mockResolvedValue({
       ...user,
       passwordHash,
+      emailVerifiedAt: null,
     });
     prismaMock.session.create.mockResolvedValue({ id: 'session-id' });
 
@@ -173,6 +176,7 @@ describe('Authentication endpoints', () => {
     prismaMock.user.findUnique.mockResolvedValue({
       ...user,
       passwordHash,
+      emailVerifiedAt: null,
     });
 
     await request(app.getHttpServer())
@@ -195,7 +199,12 @@ describe('Authentication endpoints', () => {
   it('accepts a valid session and returns only safe user fields', async () => {
     prismaMock.session.findFirst.mockResolvedValue({
       id: 'session-id',
-      user,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        emailVerifiedAt: null,
+      },
     });
 
     const response = await request(app.getHttpServer())
@@ -205,6 +214,37 @@ describe('Authentication endpoints', () => {
 
     expect(response.body).toEqual(user);
     expect(response.body).not.toHaveProperty('passwordHash');
+  });
+
+  it('exposes only a boolean email verification status from the persisted account', async () => {
+    prismaMock.session.findFirst.mockResolvedValue({
+      id: 'session-id',
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        emailVerifiedAt: new Date(),
+      },
+    });
+
+    await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Cookie', `${SESSION_COOKIE}=${sessionToken}`)
+      .expect(200)
+      .expect({
+        ...user,
+        emailVerified: true,
+      });
+
+    expect(prismaMock.session.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        select: expect.objectContaining({
+          user: {
+            select: expect.objectContaining({ emailVerifiedAt: true }),
+          },
+        }),
+      }),
+    );
   });
 
   it('rejects expired or revoked sessions', async () => {
@@ -233,7 +273,12 @@ describe('Authentication endpoints', () => {
   it('revokes the current session and clears the cookie on logout', async () => {
     prismaMock.session.findFirst.mockResolvedValue({
       id: 'session-id',
-      user,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        emailVerifiedAt: null,
+      },
     });
     prismaMock.session.updateMany.mockResolvedValue({ count: 1 });
 

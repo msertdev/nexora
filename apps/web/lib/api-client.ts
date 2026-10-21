@@ -2,6 +2,7 @@ export type SafeUser = {
   id: string;
   email: string;
   name: string;
+  emailVerified: boolean;
 };
 
 export type MembershipRole = "OWNER" | "ADMIN" | "MEMBER";
@@ -17,7 +18,19 @@ export type Organization = {
 
 export type OrganizationMember = {
   role: MembershipRole;
-  user: SafeUser;
+  user: Pick<SafeUser, "id" | "email" | "name">;
+};
+
+export type OrganizationInvitation = {
+  id: string;
+  organizationId: string;
+  email: string;
+  role: "ADMIN" | "MEMBER";
+  expiresAt: string;
+  acceptedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+  invitedBy: Pick<SafeUser, "id" | "name" | "email">;
 };
 
 export type Project = {
@@ -51,7 +64,7 @@ export type Issue = {
   dueDate: string | null;
   createdAt: string;
   updatedAt: string;
-  assignee: SafeUser | null;
+  assignee: Pick<SafeUser, "id" | "email" | "name"> | null;
   project: { key: string };
 };
 
@@ -89,11 +102,14 @@ type RegisterInput = AuthInput & {
 };
 
 export class ApiError extends Error {
+  readonly status: number;
+
   constructor(
-    readonly status: number,
+    status: number,
     message: string,
   ) {
     super(message);
+    this.status = status;
     this.name = "ApiError";
   }
 }
@@ -218,6 +234,68 @@ export const apiClient = {
   organizationMembers(organizationId: string) {
     return request<OrganizationMember[]>(
       `/api/organizations/${encodeURIComponent(organizationId)}/members`,
+    );
+  },
+
+  organizationInvitations(organizationId: string) {
+    return request<OrganizationInvitation[]>(
+      `/api/organizations/${encodeURIComponent(organizationId)}/invitations`,
+    );
+  },
+
+  createInvitation(
+    organizationId: string,
+    input: { email: string; role: "ADMIN" | "MEMBER" },
+  ) {
+    return request<OrganizationInvitation & { invitationLink: string }>(
+      `/api/organizations/${encodeURIComponent(organizationId)}/invitations`,
+      { method: "POST", body: JSON.stringify(input) },
+    );
+  },
+
+  revokeInvitation(organizationId: string, invitationId: string) {
+    return request<{ id: string; revokedAt: string }>(
+      `/api/organizations/${encodeURIComponent(organizationId)}/invitations/${encodeURIComponent(invitationId)}/revoke`,
+      { method: "POST" },
+    );
+  },
+
+  updateMemberRole(
+    organizationId: string,
+    userId: string,
+    role: "ADMIN" | "MEMBER",
+  ) {
+    return request<{ userId: string; role: MembershipRole }>(
+      `/api/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(userId)}`,
+      { method: "PATCH", body: JSON.stringify({ role }) },
+    );
+  },
+
+  removeMember(organizationId: string, userId: string) {
+    return request<{ userId: string; removed: true }>(
+      `/api/organizations/${encodeURIComponent(organizationId)}/members/${encodeURIComponent(userId)}`,
+      { method: "DELETE" },
+    );
+  },
+
+  requestEmailVerification() {
+    return request<{ status: "sent" | "verified" }>(
+      "/api/auth/email-verification/request",
+      { method: "POST" },
+    );
+  },
+
+  confirmEmailVerification(token: string) {
+    return request<{ status: "verified" }>(
+      "/api/auth/email-verification/confirm",
+      { method: "POST", body: JSON.stringify({ token }) },
+    );
+  },
+
+  acceptInvitation(token: string) {
+    return request<{ organizationId: string; role: MembershipRole }>(
+      "/api/invitations/accept",
+      { method: "POST", body: JSON.stringify({ token }) },
     );
   },
 

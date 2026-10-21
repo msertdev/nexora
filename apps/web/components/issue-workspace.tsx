@@ -264,10 +264,24 @@ function IssueRow({
     <div className={`issue-row${selected ? " issue-row--selected" : ""}`}>
       <button type="button" className="issue-row__main" onClick={onSelect}>
         <PrioritySignal priority={task.priority} />
-            <span className="issue-row__key" title={getTaskKey(task)}>{getTaskKey(task)}</span>
+        <span className="issue-row__key" title={getTaskKey(task)}>{getTaskKey(task)}</span>
         <StatusMark status={task.status} />
-            <span className="issue-row__title" title={task.title}>{task.title}</span>
-            <span className="issue-row__project" title={task.project}>{task.project}</span>
+        <span className="issue-row__title" title={task.title}>{task.title}</span>
+        <span className="issue-row__project" title={task.project}>{task.project}</span>
+        <span
+          className="issue-row__assignee"
+          title={task.assignee}
+          aria-label={`Assignee: ${task.assignee}`}
+        >
+          {task.assignee === "Unassigned"
+            ? "—"
+            : task.assignee
+                .trim()
+                .split(/\s+/)
+                .slice(0, 2)
+                .map((part) => part[0]?.toUpperCase())
+                .join("")}
+        </span>
       </button>
       <div className="issue-row__actions">
         <button type="button" onClick={onEdit} aria-label={`Edit ${task.title}`} title="Edit task">
@@ -530,6 +544,7 @@ function TaskDetailPanel({
   saving,
   error,
   memberError,
+  memberLoading,
   onClose,
   onEdit,
   onSave,
@@ -540,6 +555,7 @@ function TaskDetailPanel({
   saving: boolean;
   error: string;
   memberError: string | null;
+  memberLoading: boolean;
   onClose: () => void;
   onEdit: () => void;
   onSave: (input: {
@@ -574,7 +590,7 @@ function TaskDetailPanel({
         }}>
           <label>Status<select value={status} onChange={(event) => setStatus(event.target.value as IssueStatus)}>{issueStatuses.map((option) => <option key={option} value={option}>{statusMeta[toTaskStatus(option)].label}</option>)}</select></label>
           <label>Priority<select value={priority} onChange={(event) => setPriority(event.target.value as IssuePriority)}>{issuePriorities.map((option) => <option key={option} value={option}>{toTaskPriority(option)}</option>)}</select></label>
-          <label>Assignee<select value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)}><option value="">Unassigned</option>{members.map(({ user: member }) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>
+          <label>Assignee<select value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)} disabled={memberLoading || Boolean(memberError)}><option value="">Unassigned</option>{members.map(({ user: member }) => <option key={member.id} value={member.id}>{member.name}</option>)}</select></label>
           <label>Due date<input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
           <div><span>Project</span><strong>{task.project} · {task.identifier.split("-")[0]}</strong></div>
           {memberError ? <p className="issue-form-error" role="alert">{memberError} <button type="button" onClick={onRetryMembers}>Retry members</button></p> : null}
@@ -676,6 +692,9 @@ export function IssueWorkspace() {
     memberState.organizationId === organizationId ? memberState.items : [];
   const memberError =
     memberState.organizationId === organizationId ? memberState.error : null;
+  const memberLoading =
+    memberState.organizationId !== organizationId ||
+    memberState.status === "loading";
 
   useEffect(() => {
     if (themeReady) document.documentElement.dataset.theme = theme;
@@ -1352,6 +1371,7 @@ export function IssueWorkspace() {
             saving={detailSaving}
             error={detailError}
             memberError={memberError}
+            memberLoading={memberLoading}
             onClose={() => setIsDetailOpen(false)}
             onEdit={() => openEditModal(selectedTask)}
             onSave={(input) => void saveIssueDetails(selectedTask, input)}
@@ -1372,7 +1392,7 @@ export function IssueWorkspace() {
               <label>Description<textarea rows={4} maxLength={20_000} value={draft.description} onChange={(event) => handleDraftChange("description", event.target.value)} placeholder="Add context or acceptance criteria" /></label>
               <div className="issue-editor__grid">
                 <div className="issue-editor__project"><span>Project</span><strong>{selectedProject?.name} · {selectedProject?.key}</strong></div>
-                <label>Assignee<select value={draft.assigneeId} onChange={(event) => handleDraftChange("assigneeId", event.target.value)} disabled={memberState.status === "loading"}><option value="">Unassigned</option>{members.map(({ user: member }) => <option key={member.id} value={member.id}>{member.name} ({member.email})</option>)}</select></label>
+                <label>Assignee<select value={draft.assigneeId} onChange={(event) => handleDraftChange("assigneeId", event.target.value)} disabled={memberLoading || Boolean(memberError)}><option value="">Unassigned</option>{members.map(({ user: member }) => <option key={member.id} value={member.id}>{member.name} ({member.email})</option>)}</select></label>
                 <label>Status<select value={draft.status} onChange={(event) => handleDraftChange("status", event.target.value as IssueStatus)}>{issueStatuses.map((status) => <option key={status} value={status}>{statusMeta[toTaskStatus(status)].label}</option>)}</select></label>
                 <label>Priority<select value={draft.priority} onChange={(event) => handleDraftChange("priority", event.target.value as IssuePriority)}>{issuePriorities.map((priority) => <option key={priority} value={priority}>{toTaskPriority(priority)}</option>)}</select></label>
                 <label>Due date<input type="date" value={draft.dueDate} onChange={(event) => handleDraftChange("dueDate", event.target.value)} /></label>
@@ -1394,7 +1414,10 @@ export function IssueWorkspace() {
         />
       ) : null}
       {workspaceDialog === "members" ? (
-        <MembersDialog onClose={() => setWorkspaceDialog(null)} />
+        <MembersDialog
+          onClose={() => setWorkspaceDialog(null)}
+          onMembershipChanged={() => setIssueRefresh((value) => value + 1)}
+        />
       ) : null}
       {projectDialogOpen ? (
         <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !projectSaving) setProjectDialogOpen(false); }}>

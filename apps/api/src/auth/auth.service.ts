@@ -52,7 +52,7 @@ export class AuthService {
 
     const passwordHash = await argon2.hash(input.password, ARGON2_OPTIONS);
     try {
-      return await this.prisma.user.create({
+      const user = await this.prisma.user.create({
         data: {
           email,
           name: input.name.trim(),
@@ -62,8 +62,15 @@ export class AuthService {
           id: true,
           email: true,
           name: true,
+          emailVerifiedAt: true,
         },
       });
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        emailVerified: Boolean(user.emailVerifiedAt),
+      };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -86,6 +93,7 @@ export class AuthService {
       email: string;
       name: string;
       passwordHash: string | null;
+      emailVerifiedAt: Date | null;
     } | null;
     try {
       user = await this.prisma.user.findUnique({
@@ -95,6 +103,7 @@ export class AuthService {
           email: true,
           name: true,
           passwordHash: true,
+          emailVerifiedAt: true,
         },
       });
     } catch {
@@ -132,6 +141,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
+        emailVerified: Boolean(user.emailVerifiedAt),
       },
       token,
       expiresAt,

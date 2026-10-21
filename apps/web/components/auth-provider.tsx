@@ -34,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth({ status: "loading", user: null });
     try {
       const user = await apiClient.me();
-      setAuth({ status: "authenticated", user });
+      setAuth({ status: "authenticated", user: { ...user, emailVerified: user.emailVerified === true } });
     } catch (error) {
       setAuth({
         status:

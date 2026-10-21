@@ -22,7 +22,7 @@ export class SessionAuthGuard implements CanActivate {
 
     let session: {
       id: string;
-      user: SafeUser;
+      user: Omit<SafeUser, 'emailVerified'> & { emailVerifiedAt: Date | null };
     } | null;
     try {
       session = await this.prisma.session.findFirst({
@@ -38,6 +38,7 @@ export class SessionAuthGuard implements CanActivate {
               id: true,
               email: true,
               name: true,
+              emailVerifiedAt: true,
             },
           },
         },
@@ -52,7 +53,12 @@ export class SessionAuthGuard implements CanActivate {
 
     request.auth = {
       sessionId: session.id,
-      user: session.user,
+      user: {
+        id: session.user.id,
+        email: session.user.email,
+        name: session.user.name,
+        emailVerified: Boolean(session.user.emailVerifiedAt),
+      },
     };
     return true;
   }

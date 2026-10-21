@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "./auth-provider";
+import { safeAuthReturnTo } from "../lib/team-collaboration";
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const auth = useAuth();
@@ -38,7 +39,8 @@ export function PublicOnlyRoute({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (auth.status === "authenticated") {
-      router.replace("/");
+      const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+      router.replace(safeAuthReturnTo(returnTo));
     }
   }, [auth.status, router]);
 

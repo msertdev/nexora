@@ -4,6 +4,7 @@ export type SafeUser = {
   id: string;
   email: string;
   name: string;
+  emailVerified: boolean;
 };
 
 export type AuthenticatedRequest = {

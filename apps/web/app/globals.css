@@ -586,7 +586,7 @@ select {
   display: grid;
   width: 100%;
   min-width: 0;
-  grid-template-columns: 18px minmax(0, 82px) 18px minmax(0, 1fr) minmax(0, 112px);
+  grid-template-columns: 18px minmax(0, 82px) 18px minmax(0, 1fr) minmax(0, 112px) 26px;
   align-items: center;
   gap: 12px;
   padding: 0 14px 0 23px;
@@ -710,6 +710,7 @@ html[data-theme="light"] .workspace-loading { background: var(--surface); color:
   .issue-row { grid-template-columns: minmax(0, 1fr) 62px; }
   .issue-row__main { grid-template-columns: 18px minmax(0, 68px) 18px minmax(0, 1fr); gap: 9px; padding-left: 15px; }
   .issue-row__project { display: none; }
+  .issue-row__assignee { display: none; }
 }
 
 @media (max-width: 680px) {
@@ -962,4 +963,112 @@ html[data-theme="light"] .workspace-dialog__form input { background: var(--surfa
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+.workspace-management-success {
+  margin: 0 0 12px;
+  padding: 9px 10px;
+  border: 1px solid rgba(112, 190, 153, 0.28);
+  border-radius: 6px;
+  background: rgba(80, 160, 122, 0.09);
+  color: #9bd9b5;
+  font-size: 10px;
+  line-height: 1.55;
+}
+.workspace-invite-button {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 5px;
+  margin-top: 13px;
+  padding: 0 9px;
+  border: 1px solid rgba(181, 151, 228, 0.28);
+  border-radius: 6px;
+  background: rgba(150, 105, 212, 0.11);
+  color: #d2b8f4;
+  font-size: 10px;
+  font-weight: 550;
+}
+.workspace-invite-button:hover { background: rgba(150, 105, 212, 0.18); }
+.workspace-member__role-control select,
+.workspace-dialog__form select {
+  min-height: 29px;
+  padding: 0 7px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-size: 9px;
+}
+.workspace-member__remove,
+.workspace-invitation-list button {
+  border: 0;
+  background: transparent;
+  color: #d99a95;
+  font-size: 9px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.workspace-member__remove:disabled { opacity: 0.55; }
+.workspace-pending-invitations {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.workspace-pending-invitations h3 {
+  margin: 0 0 8px;
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 580;
+}
+.workspace-invitation-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.workspace-invitation-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+}
+.workspace-invitation-list li > div { display: grid; min-width: 0; gap: 4px; }
+.workspace-invitation-list strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-invitation-list span { color: var(--muted); font-size: 9px; }
+.workspace-dialog-backdrop--nested { z-index: 45; }
+.workspace-dialog__form select { width: 100%; min-height: 36px; }
+.issue-row__assignee {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  flex: 0 0 23px;
+  place-items: center;
+  border: 1px solid rgba(191, 155, 244, 0.2);
+  border-radius: 50%;
+  background: #35313e;
+  color: #d2baef;
+  font-size: 8px;
+  font-weight: 600;
+}
+.verification-card { width: min(440px, 100%); }
+.verification-card h1 { margin: 0 0 12px; color: var(--text); font-size: 23px; font-weight: 580; letter-spacing: -0.035em; }
+.verification-card > p { color: var(--muted); font-size: 12px; line-height: 1.65; }
+.verification-link { display: inline-flex; width: 100%; align-items: center; justify-content: space-between; text-decoration: none; }
+.auth-secondary-link { display: block; margin-top: 13px; color: #c7a6ef; font-size: 11px; text-align: center; text-decoration: underline; text-underline-offset: 3px; }
+html[data-theme="light"] .workspace-member__role-control select,
+html[data-theme="light"] .workspace-dialog__form select { background: var(--surface-raised); }
+@media (max-width: 520px) {
+  .workspace-member__role-control select { max-width: 73px; }
+  .workspace-member__remove { padding: 4px 0; }
 }
