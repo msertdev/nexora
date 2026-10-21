@@ -146,10 +146,25 @@ import { PrismaModule } from './prisma/prisma.module.js';
         ) {
           throw new Error('PUBLIC_APP_URL must use HTTPS in production');
         }
+        const trustProxyHops =
+          typeof config.TRUST_PROXY_HOPS === 'string'
+            ? Number(config.TRUST_PROXY_HOPS)
+            : 0;
+        if (
+          !Number.isInteger(trustProxyHops) ||
+          trustProxyHops < 0 ||
+          trustProxyHops > 3 ||
+          (config.NODE_ENV === 'production' && trustProxyHops !== 1)
+        ) {
+          throw new Error(
+            'TRUST_PROXY_HOPS must be 1 in production and between 0 and 3 otherwise',
+          );
+        }
 
         return {
           ...config,
           FRONTEND_ORIGIN: resolvedOrigin,
+          TRUST_PROXY_HOPS: String(trustProxyHops),
           ...(publicAppUrl
             ? { PUBLIC_APP_URL: publicAppUrl.replace(/\/$/, '') }
             : {}),

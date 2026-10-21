@@ -6,6 +6,12 @@ import { AppModule } from './app.module.js';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+  const trustProxyHops = Number(
+    configService.get<string>('TRUST_PROXY_HOPS') ?? '0',
+  );
+  if (trustProxyHops > 0) {
+    app.getHttpAdapter().getInstance().set('trust proxy', trustProxyHops);
+  }
   app.enableCors({
     origin: configService.getOrThrow<string>('FRONTEND_ORIGIN'),
     credentials: true,

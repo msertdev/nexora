@@ -1,0 +1,133 @@
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nexora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in deploy/runtime.env}
+      POSTGRES_DB: ${POSTGRES_DB:-nexora}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    networks:
+      - backend
+
+  migrate:
+    image: nexora-api-migrate:${NEXORA_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrate
+    restart: "no"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in deploy/runtime.env}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - backend
+
+  api:
+    image: nexora-api:${NEXORA_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in deploy/runtime.env}
+      FRONTEND_ORIGIN: ${PUBLIC_APP_URL:?Set PUBLIC_APP_URL in deploy/runtime.env}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:?Set PUBLIC_APP_URL in deploy/runtime.env}
+      TRUST_PROXY_HOPS: "1"
+      SMTP_HOST: ${SMTP_HOST:?Set SMTP_HOST in deploy/runtime.env}
+      SMTP_PORT: ${SMTP_PORT:?Set SMTP_PORT in deploy/runtime.env}
+      SMTP_SECURE: ${SMTP_SECURE:?Set SMTP_SECURE in deploy/runtime.env}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:?Set SMTP_FROM in deploy/runtime.env}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:4000/api/health/db').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - backend
+      - ingress
+
+  web:
+    image: nexora-web:${NEXORA_IMAGE_TAG:-local}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: runtime
+      args:
+        NEXT_PUBLIC_API_URL: ""
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: "0.0.0.0"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    networks:
+      - ingress
+
+  proxy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in deploy/runtime.env}
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${HTTP_PORT:-8080}:80"
+      - "${BIND_ADDRESS:-127.0.0.1}:${HTTPS_PORT:-8443}:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
+    networks:
+      - ingress
+
+volumes:
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-nexora-prod}_postgres_data
+  caddy_data:
+  caddy_config:
+
+networks:
+  backend:
+    internal: true
+  ingress:
