@@ -1,5 +1,52 @@
-export type TaskStatus = "backlog" | "in-progress" | "review" | "done";
+import type { IssueStatus } from "./api-client";
+
+export type TaskStatus = "backlog" | "todo" | "in-progress" | "review" | "done";
 export type TaskPriority = "Critical" | "High" | "Medium" | "Low";
+
+export const taskStatusOrder: TaskStatus[] = [
+  "backlog",
+  "todo",
+  "in-progress",
+  "review",
+  "done",
+];
+
+export const issueStatuses: IssueStatus[] = [
+  "BACKLOG",
+  "TODO",
+  "IN_PROGRESS",
+  "IN_REVIEW",
+  "DONE",
+];
+
+export function toTaskStatus(status: IssueStatus): TaskStatus {
+  switch (status) {
+    case "BACKLOG": return "backlog";
+    case "TODO": return "todo";
+    case "IN_PROGRESS": return "in-progress";
+    case "IN_REVIEW": return "review";
+    case "DONE": return "done";
+  }
+}
+
+export function toIssueStatus(status: TaskStatus): IssueStatus {
+  switch (status) {
+    case "backlog": return "BACKLOG";
+    case "todo": return "TODO";
+    case "in-progress": return "IN_PROGRESS";
+    case "review": return "IN_REVIEW";
+    case "done": return "DONE";
+  }
+}
+
+export function groupTasksByStatus<T extends { status: TaskStatus }>(
+  tasks: readonly T[],
+) {
+  return taskStatusOrder.map((status) => ({
+    status,
+    tasks: tasks.filter((task) => task.status === status),
+  }));
+}
 
 export type Task = {
   id: string;
@@ -17,8 +64,9 @@ export const statusMeta: Record<
   { label: string; helper: string }
 > = {
   backlog: { label: "Backlog", helper: "Planned" },
+  todo: { label: "Todo", helper: "Planned" },
   "in-progress": { label: "In progress", helper: "Active" },
-  review: { label: "Review", helper: "Waiting" },
+  review: { label: "In Review", helper: "Waiting" },
   done: { label: "Done", helper: "Closed" },
 };
 

@@ -20,6 +20,65 @@ export type OrganizationMember = {
   user: SafeUser;
 };
 
+export type Project = {
+  id: string;
+  organizationId: string;
+  name: string;
+  key: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type IssueStatus =
+  | "BACKLOG"
+  | "TODO"
+  | "IN_PROGRESS"
+  | "IN_REVIEW"
+  | "DONE";
+
+export type IssuePriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+
+export type Issue = {
+  id: string;
+  projectId: string;
+  issueNumber: number;
+  identifier: string;
+  title: string;
+  description: string | null;
+  status: IssueStatus;
+  priority: IssuePriority;
+  assigneeId: string | null;
+  dueDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+  assignee: SafeUser | null;
+  project: { key: string };
+};
+
+export type PaginatedResponse<T> = {
+  items: T[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
+export type IssueInput = {
+  title: string;
+  description?: string | null;
+  status?: IssueStatus;
+  priority?: IssuePriority;
+  assigneeId?: string | null;
+  dueDate?: string | null;
+};
+
+export type IssueUpdateInput = Partial<IssueInput>;
+
+export type ProjectInput = {
+  name: string;
+  key: string;
+};
+
 type AuthInput = {
   email: string;
   password: string;
@@ -66,9 +125,11 @@ async function request<T>(
     const messageByStatus: Record<number, string> = {
       400: "Check the information you entered and try again.",
       401: "Your session has expired. Please sign in again.",
-      409: "An account with this email may already exist. Try signing in instead.",
+      403: "You don’t have permission to perform this action.",
+      404: "The requested resource could not be found.",
+      409: "This change conflicts with existing data. Review your input and try again.",
       429: "Too many attempts. Please wait a moment and try again.",
-      503: "Authentication is temporarily unavailable. Please try again.",
+      503: "NEXORA is temporarily unavailable. Please try again.",
     };
 
     let serverMessage: string | string[] | undefined;
@@ -157,6 +218,66 @@ export const apiClient = {
   organizationMembers(organizationId: string) {
     return request<OrganizationMember[]>(
       `/api/organizations/${encodeURIComponent(organizationId)}/members`,
+    );
+  },
+
+  projects(organizationId: string, page = 1, limit = 100) {
+    const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+    return request<PaginatedResponse<Project>>(
+      `/api/organizations/${encodeURIComponent(organizationId)}/projects?${query}`,
+    );
+  },
+
+  createProject(organizationId: string, input: ProjectInput) {
+    return request<Project>(
+      `/api/organizations/${encodeURIComponent(organizationId)}/projects`,
+      { method: "POST", body: JSON.stringify(input) },
+    );
+  },
+
+  issues(
+    organizationId: string,
+    projectId: string,
+    query: {
+      page?: number;
+      limit?: number;
+      status?: IssueStatus;
+      priority?: IssuePriority;
+      assigneeId?: string;
+    } = {},
+  ) {
+    const params = new URLSearchParams({
+      page: String(query.page ?? 1),
+      limit: String(query.limit ?? 100),
+    });
+    if (query.status) params.set("status", query.status);
+    if (query.priority) params.set("priority", query.priority);
+    if (query.assigneeId) params.set("assigneeId", query.assigneeId);
+    return request<PaginatedResponse<Issue>>(
+      `/api/organizations/${encodeURIComponent(organizationId)}/projects/${encodeURIComponent(projectId)}/issues?${params}`,
+    );
+  },
+
+  createIssue(
+    organizationId: string,
+    projectId: string,
+    input: IssueInput,
+  ) {
+    return request<Issue>(
+      `/api/organizations/${encodeURIComponent(organizationId)}/projects/${encodeURIComponent(projectId)}/issues`,
+      { method: "POST", body: JSON.stringify(input) },
+    );
+  },
+
+  updateIssue(
+    organizationId: string,
+    projectId: string,
+    issueId: string,
+    input: IssueUpdateInput,
+  ) {
+    return request<Issue>(
+      `/api/organizations/${encodeURIComponent(organizationId)}/projects/${encodeURIComponent(projectId)}/issues/${encodeURIComponent(issueId)}`,
+      { method: "PATCH", body: JSON.stringify(input) },
     );
   },
 };
