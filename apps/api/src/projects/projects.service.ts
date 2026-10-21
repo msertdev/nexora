@@ -333,6 +333,7 @@ export class ProjectsService {
     organizationId: string,
     assigneeId: string | null | undefined,
   ) {
+    // Any organization member may assign or reassign issues; only active membership qualifies.
     if (assigneeId == null) return;
     const membership = await transaction.membership.findFirst({
       where: { organizationId, userId: assigneeId },

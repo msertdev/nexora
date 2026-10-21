@@ -17,12 +17,15 @@ import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { SessionAuthGuard } from './session-auth.guard.js';
 import { SESSION_COOKIE, SESSION_TTL_MS } from './session-token.js';
+import { ConfirmEmailVerificationDto } from './dto/confirm-email-verification.dto.js';
+import { EmailVerificationService } from './email-verification.service.js';
 
 @Controller('api/auth')
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly emailVerification: EmailVerificationService,
   ) {}
 
   private getCookieOptions() {
@@ -65,6 +68,20 @@ export class AuthController {
   ): Promise<void> {
     await this.authService.logout(request.auth!.sessionId);
     response.clearCookie(SESSION_COOKIE, this.getCookieOptions());
+  }
+
+  @Post('email-verification/request')
+  @UseGuards(SessionAuthGuard)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  requestEmailVerification(@Req() request: Request & AuthenticatedRequest) {
+    return this.emailVerification.requestVerification(request.auth!.user.id);
+  }
+
+  @Post('email-verification/confirm')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @HttpCode(200)
+  confirmEmailVerification(@Body() input: ConfirmEmailVerificationDto) {
+    return this.emailVerification.confirmVerification(input.token);
   }
 
   @Get('me')

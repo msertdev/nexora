@@ -357,6 +357,13 @@ describe('Project and issue endpoints', () => {
         assigneeId: 'c17013a8-1c2f-4b91-b7f2-d06c6b586c31',
       })
       .expect(400);
+    expect(transaction.membership.findFirst).toHaveBeenCalledWith({
+      where: {
+        organizationId,
+        userId: 'c17013a8-1c2f-4b91-b7f2-d06c6b586c31',
+      },
+      select: { id: true },
+    });
     expect(transaction.project.update).not.toHaveBeenCalled();
   });
 

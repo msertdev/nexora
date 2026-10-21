@@ -5,12 +5,22 @@ import { OrganizationMembershipGuard } from './organization-membership.guard.js'
 import { OrganizationRoleGuard } from './organization-role.guard.js';
 import { OrganizationsController } from './organizations.controller.js';
 import { OrganizationsService } from './organizations.service.js';
+import {
+  PublicInvitationController,
+  TeamCollaborationController,
+} from './team-collaboration.controller.js';
+import { TeamCollaborationService } from './team-collaboration.service.js';
 
 @Module({
   imports: [AuthModule, PrismaModule],
-  controllers: [OrganizationsController],
+  controllers: [
+    OrganizationsController,
+    TeamCollaborationController,
+    PublicInvitationController,
+  ],
   providers: [
     OrganizationsService,
+    TeamCollaborationService,
     OrganizationMembershipGuard,
     OrganizationRoleGuard,
   ],

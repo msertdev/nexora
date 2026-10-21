@@ -36,15 +36,18 @@ enum IssuePriority {
 }
 
 model User {
-  id             String       @id @default(uuid()) @db.Uuid
-  email          String       @unique @db.Citext
-  name           String
-  passwordHash   String?
-  createdAt      DateTime     @default(now()) @db.Timestamptz(6)
-  updatedAt      DateTime     @updatedAt @db.Timestamptz(6)
-  memberships    Membership[]
-  assignedIssues Issue[]      @relation("IssueAssignee")
-  sessions       Session[]
+  id                      String                   @id @default(uuid()) @db.Uuid
+  email                   String                   @unique @db.Citext
+  emailVerifiedAt         DateTime?                @db.Timestamptz(6)
+  name                    String
+  passwordHash            String?
+  createdAt               DateTime                 @default(now()) @db.Timestamptz(6)
+  updatedAt               DateTime                 @updatedAt @db.Timestamptz(6)
+  memberships             Membership[]
+  assignedIssues          Issue[]                  @relation("IssueAssignee")
+  sessions                Session[]
+  invitationsSent         Invitation[]             @relation("InvitationInviter")
+  emailVerificationTokens EmailVerificationToken[]
 }
 
 model Session {
@@ -68,6 +71,7 @@ model Organization {
   updatedAt   DateTime     @updatedAt @db.Timestamptz(6)
   memberships Membership[]
   projects    Project[]
+  invitations Invitation[]
 }
 
 model Membership {
@@ -82,6 +86,37 @@ model Membership {
 
   @@unique([organizationId, userId])
   @@index([userId])
+}
+
+model Invitation {
+  id              String         @id @default(uuid()) @db.Uuid
+  organizationId  String         @db.Uuid
+  invitedByUserId String         @db.Uuid
+  email           String         @db.Citext
+  role            MembershipRole
+  tokenHash       String         @unique @db.Char(64)
+  expiresAt       DateTime       @db.Timestamptz(6)
+  acceptedAt      DateTime?      @db.Timestamptz(6)
+  revokedAt       DateTime?      @db.Timestamptz(6)
+  createdAt       DateTime       @default(now()) @db.Timestamptz(6)
+  organization    Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedBy       User           @relation("InvitationInviter", fields: [invitedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, email, expiresAt])
+  @@index([invitedByUserId])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique @db.Char(64)
+  expiresAt DateTime  @db.Timestamptz(6)
+  usedAt    DateTime? @db.Timestamptz(6)
+  revokedAt DateTime? @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @db.Timestamptz(6)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
 }
 
 model Project {
