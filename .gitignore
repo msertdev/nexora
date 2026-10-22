@@ -55,4 +55,8 @@ yarn-error.log*
 **/.env.local
 deploy/runtime.env
 
+# Interrupted documentation asset publishing
+/docs/images/.nexora-*.new
+/docs/images/.nexora-*.backup
+
 *.tsbuildinfo
