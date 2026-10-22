@@ -695,11 +695,11 @@ function monitorPage(page) {
 
 async function assertNoUiFeedback(page, label) {
   const alert = page.locator('[role="alert"]:visible');
-  const alertCount = await alert.count();
-  if (alertCount > 0) {
-    throw new Error(
-      `${label} contains an alert: ${(await alert.allTextContents()).join(" | ")}`,
-    );
+  const alertMessages = (await alert.allTextContents())
+    .map((message) => message.trim())
+    .filter(Boolean);
+  if (alertMessages.length > 0) {
+    throw new Error(`${label} contains an alert: ${alertMessages.join(" | ")}`);
   }
 
   const toast = page.locator(
@@ -738,7 +738,7 @@ async function login(page, baseUrl, email, password) {
   const emailField = page.getByLabel("Email", { exact: true });
   await emailField.waitFor({ state: "visible", timeout: UI_TIMEOUT });
   await emailField.fill(email);
-  await page.getByLabel("Password", { exact: true }).fill(password);
+  await page.locator('input[name="password"]').fill(password);
   await page.getByRole("button", { name: /^Sign in/ }).click();
 
   try {
