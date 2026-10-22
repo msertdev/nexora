@@ -1,5 +1,7 @@
 # NEXORA
 
+[![CI](https://github.com/msertdev/nexora/actions/workflows/continuous-integration.yml/badge.svg?branch=main)](https://github.com/msertdev/nexora/actions/workflows/continuous-integration.yml)
+
 **A self-hosted workspace for projects, priorities, and team delivery.**
 
 NEXORA brings organizations, projects, and issue tracking together in one
@@ -148,8 +150,9 @@ the API, web app, documentation app, Prisma schema, production dependency
 audit, Compose configurations, and Docker images. Actions are pinned to
 immutable commit SHAs and workflow permissions are read-only.
 
-The workflow has been added to the repository but has **not yet run on
-GitHub**. Its first hosted run should be reviewed before publication.
+The latest `main` workflow is expected to pass before a change is merged. The
+workflow and its previous runs are available on the repository's
+[Actions page](https://github.com/msertdev/nexora/actions/workflows/continuous-integration.yml).
 
 ## Contributing and security
 

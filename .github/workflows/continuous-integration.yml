@@ -41,8 +41,16 @@ jobs:
       - name: Audit production dependencies
         run: pnpm audit --prod
 
-      - name: Validate workflow YAML
-        run: pnpm exec prettier --check .github/workflows/continuous-integration.yml
+      - name: Audit all dependencies against reviewed exceptions
+        run: node scripts/check-dependency-audit.mjs
+
+      - name: Validate CI and security configuration
+        run: >-
+          pnpm exec prettier --check
+          .github/dependabot.yml
+          .github/workflows/continuous-integration.yml
+          scripts/check-dependency-audit.mjs
+          security/audit-exceptions.json
 
       - name: Check API formatting
         run: pnpm --filter api exec prettier --check "src/**/*.ts" "test/**/*.ts"

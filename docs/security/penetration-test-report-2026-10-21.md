@@ -258,3 +258,18 @@ vulnerabilities. The full `pnpm audit` still reports only the previously
 documented `braces@3.0.3` development-tooling advisory
 (`GHSA-vfj7-8cjw-p6xm`), for which the audit currently lists no patched
 version.
+
+## Next.js 16.4.2 browser smoke follow-up — 2026-10-22
+
+After the dependency update, the existing production web build was served on a
+loopback-only port and exercised with the installed stable Google Chrome in
+headless mode. The `/`, `/login`, and `/register` routes each returned `200`,
+rendered Next.js markup, and supplied a per-response nonce CSP. Chrome exited
+successfully for all three routes with no observed CSP refusal, hydration
+error, uncaught exception, `TypeError`, or `ReferenceError`.
+
+This follow-up did not start Docker, change a database, register a user, or
+repeat the authenticated workspace flow. The earlier isolated HTTPS test still
+provides the end-to-end evidence for Secure cookies and authenticated
+navigation; this narrower follow-up confirms that the Next.js `16.4.2` update
+did not break the public production-rendered routes or their nonce CSP.
