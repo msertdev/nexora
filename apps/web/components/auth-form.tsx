@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { apiClient, ApiError } from "../lib/api-client";
 import { safeAuthReturnTo } from "../lib/team-collaboration";
 import { useAuth } from "./auth-provider";
@@ -27,6 +27,22 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [fieldError, setFieldError] = useState("");
+  const [invitationToken, setInvitationToken] = useState<string>();
+
+  useEffect(() => {
+    if (!isRegister) return;
+    const token = new URLSearchParams(window.location.hash.slice(1)).get(
+      "token",
+    );
+    if (token) {
+      setInvitationToken(token);
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${window.location.search}`,
+      );
+    }
+  }, [isRegister]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -61,6 +77,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           name: name.trim(),
           email: email.trim().toLowerCase(),
           password,
+          ...(invitationToken ? { invitationToken } : {}),
         });
         router.replace(
           safeReturnTo === "/"
@@ -89,8 +106,14 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   return (
     <main className="auth-page">
-      <div className="auth-decoration auth-decoration--diamond" aria-hidden="true" />
-      <div className="auth-decoration auth-decoration--spark" aria-hidden="true" />
+      <div
+        className="auth-decoration auth-decoration--diamond"
+        aria-hidden="true"
+      />
+      <div
+        className="auth-decoration auth-decoration--spark"
+        aria-hidden="true"
+      />
       <div className="auth-layout">
         <section className="auth-intro" aria-labelledby="auth-brand-title">
           <Link className="auth-brand" href="/" aria-label="NEXORA home">
@@ -114,8 +137,12 @@ export function AuthForm({ mode }: AuthFormProps) {
             workspace.
           </p>
           <div className="auth-points" aria-label="NEXORA workspace benefits">
-            <span><i aria-hidden="true" /> Clear priorities</span>
-            <span><i aria-hidden="true" /> Work in sync</span>
+            <span>
+              <i aria-hidden="true" /> Clear priorities
+            </span>
+            <span>
+              <i aria-hidden="true" /> Work in sync
+            </span>
           </div>
         </section>
 
@@ -123,7 +150,9 @@ export function AuthForm({ mode }: AuthFormProps) {
           <p className="auth-card__eyebrow">
             {isRegister ? "GET STARTED" : "WELCOME BACK"}
           </p>
-          <h2 id="auth-title">{isRegister ? "Create your account" : "Sign in"}</h2>
+          <h2 id="auth-title">
+            {isRegister ? "Create your account" : "Sign in"}
+          </h2>
           <p className="auth-card__subtitle">
             {isRegister
               ? "Set up your NEXORA account to continue."
@@ -175,7 +204,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                 placeholder="you@example.com"
                 aria-invalid={Boolean(
                   fieldError &&
-                    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()),
+                  !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()),
                 )}
               />
             </label>
@@ -183,7 +212,9 @@ export function AuthForm({ mode }: AuthFormProps) {
               <span>Password</span>
               <span className="auth-password">
                 <input
-                  autoComplete={isRegister ? "new-password" : "current-password"}
+                  autoComplete={
+                    isRegister ? "new-password" : "current-password"
+                  }
                   maxLength={128}
                   minLength={isRegister ? 12 : 1}
                   name="password"
@@ -238,11 +269,7 @@ export function AuthForm({ mode }: AuthFormProps) {
                 {fieldError}
               </p>
             ) : null}
-            <button
-              className="auth-submit"
-              type="submit"
-              disabled={submitting}
-            >
+            <button className="auth-submit" type="submit" disabled={submitting}>
               {submitting
                 ? isRegister
                   ? "Creating account…"

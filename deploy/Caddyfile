@@ -1,5 +1,14 @@
 {$APP_DOMAIN::80} {
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		-Server
+	}
+
 	@api path /api/*
+	header @api Content-Security-Policy "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 	reverse_proxy @api api:4000
 	reverse_proxy web:3000
 }

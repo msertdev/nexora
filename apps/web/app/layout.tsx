@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import localFont from "next/font/local";
 import { AuthProvider } from "../components/auth-provider";
 import { WorkspaceProvider } from "../components/workspace-provider";
@@ -15,17 +16,19 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: "NEXORA | Enterprise Workspace",
-  description: "Open-source B2B workspace for planning, delivery and operational coordination.",
+  description:
+    "Open-source B2B workspace for planning, delivery and operational coordination.",
   icons: {
     icon: [{ url: "/nexora-logo.svg", type: "image/svg+xml" }],
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  await headers();
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>

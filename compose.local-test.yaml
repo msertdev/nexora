@@ -2,6 +2,7 @@ services:
   api:
     environment:
       NODE_ENV: development
+      REGISTRATION_MODE: ${REGISTRATION_MODE:-public}
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
       SMTP_SECURE: "false"

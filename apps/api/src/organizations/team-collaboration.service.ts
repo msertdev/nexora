@@ -186,7 +186,6 @@ export class TeamCollaborationService {
         revokedAt: invitation.revokedAt,
         createdAt: invitation.createdAt,
         invitedBy: invitation.invitedBy,
-        invitationLink: invitationUrl.toString(),
       };
     } catch (error) {
       if (isHttpError(error)) throw error;

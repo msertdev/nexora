@@ -196,29 +196,27 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
       .expect(403);
   });
 
-  it('lets OWNER create an invitation and returns a one-time link, not its token hash', async () => {
+  it('lets OWNER create an invitation without returning its bearer link or token hash', async () => {
     const response = await authenticated('post', invitationPath)
       .send({ email: ' Invitee@Example.com ', role: 'MEMBER' })
       .expect(201);
 
-    const token = new URLSearchParams(
-      new URL(response.body.invitationLink).hash.slice(1),
-    ).get('token');
-    expect(token).toBeTruthy();
     expect(response.body.email).toBe('invitee@example.com');
+    expect(response.body).not.toHaveProperty('invitationLink');
+    expect(response.body).not.toHaveProperty('token');
     expect(response.body).not.toHaveProperty('tokenHash');
     expect(transaction.invitation.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           email: 'invitee@example.com',
           role: 'MEMBER',
-          tokenHash: createHash('sha256').update(token!).digest('hex'),
+          tokenHash: expect.any(String),
         }),
       }),
     );
     expect(
       transaction.invitation.create.mock.calls[0]?.[0].data.tokenHash,
-    ).not.toBe(token);
+    ).toMatch(/^[a-f0-9]{64}$/);
     expect(emailDeliveryMock.sendInvitation).toHaveBeenCalledWith(
       'invitee@example.com',
       'NEXORA Studio',
@@ -226,6 +224,7 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
       'MEMBER',
       expect.stringContaining('#token='),
     );
+    expect(JSON.stringify(response.body)).not.toContain('#token=');
   });
 
   it('allows ADMIN to invite MEMBER but denies ADMIN invitation and MEMBER invitations', async () => {
@@ -284,6 +283,7 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
     const response = await authenticated('get', invitationPath).expect(200);
     expect(response.body[0]).not.toHaveProperty('tokenHash');
     expect(response.body[0]).not.toHaveProperty('invitationLink');
+    expect(JSON.stringify(response.body)).not.toContain('#token=');
   });
 
   it('rejects duplicate active invitations and redundant memberships generically', async () => {
@@ -513,15 +513,13 @@ describe('Team collaboration endpoints (mocked Prisma)', () => {
       .expect(({ body }) => expect(body).toEqual({ status: 'sent' }));
 
     expect(JSON.stringify(response.body)).not.toMatch(/[A-Za-z0-9_-]{40,}/);
-    const [recipient, link] =
-      emailDeliveryMock.sendVerificationLink.mock.calls[0] as [
-        string,
-        string,
-      ];
+    const [recipient, link] = emailDeliveryMock.sendVerificationLink.mock
+      .calls[0] as [string, string];
     expect(recipient).toBe('owner@example.com');
     const token = new URLSearchParams(new URL(link).hash.slice(1)).get('token');
     expect(token).toBeTruthy();
-    const createCall = prismaMock.emailVerificationToken.create.mock.calls[0]![0];
+    const createCall =
+      prismaMock.emailVerificationToken.create.mock.calls[0]![0];
     expect(createCall.data.tokenHash).toBe(
       createHash('sha256').update(token!).digest('hex'),
     );

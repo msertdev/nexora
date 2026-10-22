@@ -1,4 +1,5 @@
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as argon2 from 'argon2';
@@ -12,6 +13,7 @@ import { SESSION_COOKIE, hashSessionToken } from './session-token.js';
 describe('Authentication endpoints', () => {
   let app: INestApplication<App>;
   let passwordHash: string;
+  let registrationMode: 'public' | 'invite-only' = 'public';
   const user = {
     id: 'c17013a8-1c2f-4b91-b7f2-d06c6b586c30',
     email: 'person@example.com',
@@ -24,12 +26,25 @@ describe('Authentication endpoints', () => {
       findUnique: vi.fn(),
       create: vi.fn(),
     },
+    invitation: {
+      findUnique: vi.fn(),
+    },
     session: {
       findFirst: vi.fn(),
       create: vi.fn(),
       updateMany: vi.fn(),
     },
+    $transaction: vi.fn(),
     $queryRaw: vi.fn(),
+  };
+  const configMock = {
+    get: vi.fn((key: string) => (key === 'NODE_ENV' ? 'test' : undefined)),
+    getOrThrow: vi.fn((key: string) => {
+      if (key === 'REGISTRATION_MODE') return registrationMode;
+      if (key === 'FRONTEND_ORIGIN') return 'http://localhost:3000';
+      if (key === 'PUBLIC_APP_URL') return 'http://localhost:3000';
+      throw new Error(`Unexpected config key: ${key}`);
+    }),
   };
 
   beforeAll(async () => {
@@ -39,9 +54,12 @@ describe('Authentication endpoints', () => {
     })
       .overrideProvider(PrismaService)
       .useValue(prismaMock)
+      .overrideProvider(ConfigService)
+      .useValue(configMock)
       .compile();
 
     app = moduleFixture.createNestApplication();
+    app.getHttpAdapter().getInstance().set('trust proxy', true);
     app.useGlobalPipes(
       new ValidationPipe({
         transform: true,
@@ -58,11 +76,19 @@ describe('Authentication endpoints', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    registrationMode = 'public';
+    prismaMock.$transaction.mockImplementation(
+      async (callback: (transaction: typeof prismaMock) => Promise<unknown>) =>
+        callback(prismaMock),
+    );
+    prismaMock.user.findUnique.mockResolvedValue(null);
+    prismaMock.invitation.findUnique.mockResolvedValue(null);
   });
 
   it('rejects invalid registration input', async () => {
     await request(app.getHttpServer())
       .post('/api/auth/register')
+      .set('X-Forwarded-For', '198.51.100.1')
       .set('Origin', 'http://localhost:3000')
       .send({
         email: 'not-an-email',
@@ -75,7 +101,6 @@ describe('Authentication endpoints', () => {
   });
 
   it('normalizes registration email and returns only safe user fields', async () => {
-    prismaMock.user.findUnique.mockResolvedValue(null);
     prismaMock.user.create.mockImplementation(async ({ data }) => ({
       id: user.id,
       email: data.email,
@@ -85,6 +110,7 @@ describe('Authentication endpoints', () => {
 
     const response = await request(app.getHttpServer())
       .post('/api/auth/register')
+      .set('X-Forwarded-For', '198.51.100.2')
       .set('Origin', 'http://localhost:3000')
       .send({
         email: '  PERSON@Example.com ',
@@ -115,11 +141,92 @@ describe('Authentication endpoints', () => {
     ).resolves.toBe(true);
   });
 
+  it('requires a valid matching invitation when registration is invite-only', async () => {
+    registrationMode = 'invite-only';
+    await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .set('X-Forwarded-For', '198.51.100.3')
+      .set('Origin', 'http://localhost:3000')
+      .send({
+        email: 'person@example.com',
+        name: 'Example Person',
+        password: 'Correct horse battery staple 42!',
+      })
+      .expect(403);
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+
+    const invitationToken = Buffer.alloc(32, 4).toString('base64url');
+    prismaMock.invitation.findUnique.mockResolvedValue({
+      email: 'someone-else@example.com',
+      expiresAt: new Date(Date.now() + 60_000),
+      acceptedAt: null,
+      revokedAt: null,
+    });
+    await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .set('X-Forwarded-For', '198.51.100.4')
+      .set('Origin', 'http://localhost:3000')
+      .send({
+        email: 'person@example.com',
+        name: 'Example Person',
+        password: 'Correct horse battery staple 42!',
+        invitationToken,
+      })
+      .expect(403);
+    expect(prismaMock.user.create).not.toHaveBeenCalled();
+  });
+
+  it('allows matching invited registration without exposing the invitation token', async () => {
+    registrationMode = 'invite-only';
+    const invitationToken = Buffer.alloc(32, 5).toString('base64url');
+    prismaMock.invitation.findUnique.mockResolvedValue({
+      email: 'person@example.com',
+      expiresAt: new Date(Date.now() + 60_000),
+      acceptedAt: null,
+      revokedAt: null,
+    });
+    prismaMock.user.create.mockImplementation(async ({ data }) => ({
+      id: user.id,
+      email: data.email,
+      name: data.name,
+      emailVerifiedAt: null,
+    }));
+
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .set('X-Forwarded-For', '198.51.100.5')
+      .set('Origin', 'http://localhost:3000')
+      .send({
+        email: 'PERSON@example.com',
+        name: 'Example Person',
+        password: 'Correct horse battery staple 42!',
+        invitationToken,
+      })
+      .expect(201);
+
+    expect(response.body.emailVerified).toBe(false);
+    expect(response.body).not.toHaveProperty('invitationToken');
+    expect(response.body).not.toHaveProperty('token');
+    const tokenHash = createHash('sha256')
+      .update(invitationToken)
+      .digest('hex');
+    expect(prismaMock.invitation.findUnique).toHaveBeenCalledWith({
+      where: { tokenHash },
+      select: {
+        email: true,
+        expiresAt: true,
+        acceptedAt: true,
+        revokedAt: true,
+      },
+    });
+  });
+
   it('rejects duplicate registrations without exposing account details', async () => {
     prismaMock.user.findUnique.mockResolvedValue({ id: user.id });
 
     await request(app.getHttpServer())
       .post('/api/auth/register')
+      .set('X-Forwarded-For', '198.51.100.6')
       .set('Origin', 'http://localhost:3000')
       .send({
         email: user.email,

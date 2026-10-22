@@ -43,11 +43,7 @@ export type Project = {
 };
 
 export type IssueStatus =
-  | "BACKLOG"
-  | "TODO"
-  | "IN_PROGRESS"
-  | "IN_REVIEW"
-  | "DONE";
+  "BACKLOG" | "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "DONE";
 
 export type IssuePriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
@@ -99,15 +95,13 @@ type AuthInput = {
 
 type RegisterInput = AuthInput & {
   name: string;
+  invitationToken?: string;
 };
 
 export class ApiError extends Error {
   readonly status: number;
 
-  constructor(
-    status: number,
-    message: string,
-  ) {
+  constructor(status: number, message: string) {
     super(message);
     this.status = status;
     this.name = "ApiError";
@@ -118,10 +112,7 @@ const API_URL =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ??
   (process.env.NODE_ENV === "production" ? "" : "http://localhost:4000");
 
-async function request<T>(
-  path: string,
-  options: RequestInit = {},
-): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}${path}`, {
@@ -134,7 +125,10 @@ async function request<T>(
       },
     });
   } catch {
-    throw new ApiError(0, "Unable to reach NEXORA. Check your connection and try again.");
+    throw new ApiError(
+      0,
+      "Unable to reach NEXORA. Check your connection and try again.",
+    );
   }
 
   if (!response.ok) {
@@ -178,10 +172,13 @@ async function request<T>(
               serverMessage ===
                 "Unable to create an organization with that name"
             ? "That workspace name is already in use. Try another."
-            : response.status === 400 && firstServerMessage
-              ? firstServerMessage
-          : messageByStatus[response.status] ??
-            "Something went wrong. Please try again.";
+            : response.status === 403 &&
+                serverMessage === "Registration requires a valid invitation"
+              ? "Registration is invite-only. Open the invitation link to create an account."
+              : response.status === 400 && firstServerMessage
+                ? firstServerMessage
+                : (messageByStatus[response.status] ??
+                  "Something went wrong. Please try again.");
 
     throw new ApiError(response.status, message);
   }
@@ -247,7 +244,7 @@ export const apiClient = {
     organizationId: string,
     input: { email: string; role: "ADMIN" | "MEMBER" },
   ) {
-    return request<OrganizationInvitation & { invitationLink: string }>(
+    return request<OrganizationInvitation>(
       `/api/organizations/${encodeURIComponent(organizationId)}/invitations`,
       { method: "POST", body: JSON.stringify(input) },
     );
@@ -300,7 +297,10 @@ export const apiClient = {
   },
 
   projects(organizationId: string, page = 1, limit = 100) {
-    const query = new URLSearchParams({ page: String(page), limit: String(limit) });
+    const query = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
     return request<PaginatedResponse<Project>>(
       `/api/organizations/${encodeURIComponent(organizationId)}/projects?${query}`,
     );
@@ -336,11 +336,7 @@ export const apiClient = {
     );
   },
 
-  createIssue(
-    organizationId: string,
-    projectId: string,
-    input: IssueInput,
-  ) {
+  createIssue(organizationId: string, projectId: string, input: IssueInput) {
     return request<Issue>(
       `/api/organizations/${encodeURIComponent(organizationId)}/projects/${encodeURIComponent(projectId)}/issues`,
       { method: "POST", body: JSON.stringify(input) },

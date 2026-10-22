@@ -28,8 +28,11 @@ export default function AcceptInvitationPage() {
   const [state, setState] = useState<AcceptanceState>("checking");
   const [message, setMessage] = useState("");
   const [tokenReady, setTokenReady] = useState(false);
+  const [invitationToken, setInvitationToken] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [joinedOrganizationId, setJoinedOrganizationId] = useState<string | null>(null);
+  const [joinedOrganizationId, setJoinedOrganizationId] = useState<
+    string | null
+  >(null);
   const started = useRef(false);
   const accepting = useRef(false);
   const { refresh } = workspaces;
@@ -49,7 +52,10 @@ export default function AcceptInvitationPage() {
     if (tokenFromFragment) {
       sessionStorage.setItem(INVITATION_TOKEN_KEY, tokenFromFragment);
     }
-    if (!sessionStorage.getItem(INVITATION_TOKEN_KEY)) {
+    const token =
+      tokenFromFragment ?? sessionStorage.getItem(INVITATION_TOKEN_KEY);
+    setInvitationToken(token);
+    if (!token) {
       setState("invalid");
     } else {
       setState("checking");
@@ -62,7 +68,9 @@ export default function AcceptInvitationPage() {
     if (auth.status === "loading") return;
     if (auth.status === "unavailable") {
       setState("error");
-      setMessage("We couldn’t check your session. Try again when NEXORA is available.");
+      setMessage(
+        "We couldn’t check your session. Try again when NEXORA is available.",
+      );
       return;
     }
     if (auth.status === "unauthenticated") {
@@ -93,7 +101,9 @@ export default function AcceptInvitationPage() {
         );
         if (!joined) {
           setState("error");
-          setMessage("You joined the workspace, but it could not be loaded. Refresh workspaces and try again.");
+          setMessage(
+            "You joined the workspace, but it could not be loaded. Refresh workspaces and try again.",
+          );
           return;
         }
         setState("accepted");
@@ -104,7 +114,11 @@ export default function AcceptInvitationPage() {
           error instanceof ApiError
             ? invitationFailureState(error.status)
             : "error";
-        if (nextState === "invalid" || nextState === "expired" || nextState === "used") {
+        if (
+          nextState === "invalid" ||
+          nextState === "expired" ||
+          nextState === "used"
+        ) {
           sessionStorage.removeItem(INVITATION_TOKEN_KEY);
           setState(nextState);
         } else if (nextState === "wrong-account") {
@@ -158,13 +172,18 @@ export default function AcceptInvitationPage() {
       setState("accepted");
       setMessage(`You’ve joined ${joined.name}.`);
     } else {
-      setMessage("The invitation was accepted, but workspace data is still unavailable.");
+      setMessage(
+        "The invitation was accepted, but workspace data is still unavailable.",
+      );
     }
   }
 
   return (
     <main className="auth-page">
-      <section className="auth-card verification-card" aria-labelledby="invitation-title">
+      <section
+        className="auth-card verification-card"
+        aria-labelledby="invitation-title"
+      >
         <p className="auth-card__eyebrow">WORKSPACE INVITATION</p>
         <h1 id="invitation-title">
           {state === "accepted"
@@ -177,44 +196,78 @@ export default function AcceptInvitationPage() {
                   ? "Invalid invitation link"
                   : "Join your workspace"}
         </h1>
-        {state === "checking" ? <p role="status">Checking your invitation…</p> : null}
+        {state === "checking" ? (
+          <p role="status">Checking your invitation…</p>
+        ) : null}
         {state === "needs-auth" ? (
           <>
-            <p>Sign in or create an account to continue. Use the email address the invitation was sent to.</p>
-            <Link className="auth-submit verification-link" href="/login?returnTo=%2Finvitations%2Faccept">
+            <p>
+              Sign in or create an account to continue. Use the email address
+              the invitation was sent to.
+            </p>
+            <Link
+              className="auth-submit verification-link"
+              href="/login?returnTo=%2Finvitations%2Faccept"
+            >
               Sign in <span aria-hidden="true">→</span>
             </Link>
-            <Link className="auth-secondary-link" href="/register?returnTo=%2Finvitations%2Faccept">
+            <Link
+              className="auth-secondary-link"
+              href={`/register?returnTo=%2Finvitations%2Faccept${invitationToken ? `#token=${encodeURIComponent(invitationToken)}` : ""}`}
+            >
               Create an account
             </Link>
           </>
         ) : null}
         {state === "unverified" ? (
           <>
-            <p>Verify the email address on your account before accepting this invitation.</p>
-            <Link className="auth-submit verification-link" href="/verify-email?returnTo=%2Finvitations%2Faccept">
+            <p>
+              Verify the email address on your account before accepting this
+              invitation.
+            </p>
+            <Link
+              className="auth-submit verification-link"
+              href="/verify-email?returnTo=%2Finvitations%2Faccept"
+            >
               Verify email <span aria-hidden="true">→</span>
             </Link>
           </>
         ) : null}
         {state === "wrong-account" ? (
           <>
-            <p>This invitation can’t be accepted by the current account. Sign in with the invited, verified email address.</p>
-            <button className="auth-submit" type="button" onClick={() => void switchAccount()}>
+            <p>
+              This invitation can’t be accepted by the current account. Sign in
+              with the invited, verified email address.
+            </p>
+            <button
+              className="auth-submit"
+              type="button"
+              onClick={() => void switchAccount()}
+            >
               Switch account <span aria-hidden="true">→</span>
             </button>
           </>
         ) : null}
         {state === "accepted" ? (
           <>
-            <p className="auth-notice" role="status">{message}</p>
-            <button className="auth-submit" type="button" onClick={() => router.replace("/")}>
+            <p className="auth-notice" role="status">
+              {message}
+            </p>
+            <button
+              className="auth-submit"
+              type="button"
+              onClick={() => router.replace("/")}
+            >
               Open workspace <span aria-hidden="true">→</span>
             </button>
           </>
         ) : null}
         {state === "error" && joinedOrganizationId ? (
-          <button className="auth-submit" type="button" onClick={() => void retryWorkspaceRefresh()}>
+          <button
+            className="auth-submit"
+            type="button"
+            onClick={() => void retryWorkspaceRefresh()}
+          >
             Retry workspace refresh <span aria-hidden="true">→</span>
           </button>
         ) : null}
@@ -227,9 +280,17 @@ export default function AcceptInvitationPage() {
                 : "This link is not valid. Ask the inviter for a new link."}
           </p>
         ) : null}
-        {state === "error" ? <p className="auth-error" role="alert">{message}</p> : null}
+        {state === "error" ? (
+          <p className="auth-error" role="alert">
+            {message}
+          </p>
+        ) : null}
         {state === "error" && sessionStorage.getItem(INVITATION_TOKEN_KEY) ? (
-          <button className="auth-submit" type="button" onClick={() => setRetryCount((value) => value + 1)}>
+          <button
+            className="auth-submit"
+            type="button"
+            onClick={() => setRetryCount((value) => value + 1)}
+          >
             Retry invitation <span aria-hidden="true">→</span>
           </button>
         ) : null}

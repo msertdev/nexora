@@ -37,6 +37,17 @@ import { PrismaModule } from './prisma/prisma.module.js';
           typeof frontendOrigin === 'string'
             ? frontendOrigin
             : 'http://localhost:3000';
+        const registrationMode =
+          typeof config.REGISTRATION_MODE === 'string'
+            ? config.REGISTRATION_MODE
+            : config.NODE_ENV === 'production'
+              ? 'invite-only'
+              : 'public';
+        if (!['public', 'invite-only'].includes(registrationMode)) {
+          throw new Error(
+            'REGISTRATION_MODE must be either public or invite-only',
+          );
+        }
         let parsedOrigin: URL;
         try {
           parsedOrigin = new URL(resolvedOrigin);
@@ -59,35 +70,35 @@ import { PrismaModule } from './prisma/prisma.module.js';
         const smtpUser =
           typeof config.SMTP_USER === 'string' ? config.SMTP_USER.trim() : '';
         const smtpPassword =
-          typeof config.SMTP_PASSWORD === 'string'
-            ? config.SMTP_PASSWORD
-            : '';
+          typeof config.SMTP_PASSWORD === 'string' ? config.SMTP_PASSWORD : '';
 
         if ((smtpUser && !smtpPassword) || (!smtpUser && smtpPassword)) {
-          throw new Error('SMTP_USER and SMTP_PASSWORD must be configured together');
+          throw new Error(
+            'SMTP_USER and SMTP_PASSWORD must be configured together',
+          );
         }
         if (
           (smtpPort !== undefined &&
-            (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535)) ||
-          (smtpSecure !== undefined &&
-            typeof smtpSecure !== 'string') ||
+            (!Number.isInteger(smtpPort) ||
+              smtpPort < 1 ||
+              smtpPort > 65535)) ||
+          (smtpSecure !== undefined && typeof smtpSecure !== 'string') ||
           (typeof smtpSecure === 'string' &&
             !['true', 'false'].includes(smtpSecure))
         ) {
           throw new Error('SMTP_PORT or SMTP_SECURE has an invalid value');
         }
         if (Boolean(smtpHost) !== Boolean(smtpFrom)) {
-          throw new Error('SMTP_HOST and SMTP_FROM must be configured together');
+          throw new Error(
+            'SMTP_HOST and SMTP_FROM must be configured together',
+          );
         }
         if (smtpHost && (!smtpPort || smtpSecure === undefined)) {
           throw new Error(
             'SMTP_PORT and SMTP_SECURE are required when SMTP is configured',
           );
         }
-        if (
-          smtpFrom &&
-          !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(smtpFrom)
-        ) {
+        if (smtpFrom && !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(smtpFrom)) {
           throw new Error('SMTP_FROM must be a valid email address');
         }
         const publicAppUrl =
@@ -127,7 +138,9 @@ import { PrismaModule } from './prisma/prisma.module.js';
           config.NODE_ENV === 'production' &&
           (!smtpHost || !smtpFrom || !smtpPort || smtpSecure === undefined)
         ) {
-          throw new Error('SMTP_HOST, SMTP_PORT, SMTP_SECURE and SMTP_FROM are required in production');
+          throw new Error(
+            'SMTP_HOST, SMTP_PORT, SMTP_SECURE and SMTP_FROM are required in production',
+          );
         }
         if (
           config.NODE_ENV === 'production' &&
@@ -138,7 +151,9 @@ import { PrismaModule } from './prisma/prisma.module.js';
             normalizedSmtpHost === '::1' ||
             normalizedSmtpHost === 'mailpit')
         ) {
-          throw new Error('Local development SMTP endpoints are not allowed in production');
+          throw new Error(
+            'Local development SMTP endpoints are not allowed in production',
+          );
         }
         if (
           config.NODE_ENV === 'production' &&
@@ -164,6 +179,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
         return {
           ...config,
           FRONTEND_ORIGIN: resolvedOrigin,
+          REGISTRATION_MODE: registrationMode,
           TRUST_PROXY_HOPS: String(trustProxyHops),
           ...(publicAppUrl
             ? { PUBLIC_APP_URL: publicAppUrl.replace(/\/$/, '') }

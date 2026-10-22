@@ -1,4 +1,5 @@
 import {
+  ForbiddenException,
   ConflictException,
   Injectable,
   ServiceUnavailableException,
@@ -9,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 import { SafeUser } from './auth.types.js';
+import { ConfigService } from '@nestjs/config';
 import {
   createSessionToken,
   hashSessionToken,
@@ -16,6 +18,7 @@ import {
 } from './session-token.js';
 import * as argon2 from 'argon2';
 import { randomBytes } from 'node:crypto';
+import { createHash } from 'node:crypto';
 
 const ARGON2_OPTIONS: argon2.HashOptions = {
   type: argon2.argon2id,
@@ -31,40 +34,76 @@ export class AuthService {
     ARGON2_OPTIONS,
   );
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   async register(input: RegisterDto): Promise<SafeUser> {
     const email = input.email.trim().toLowerCase();
-    try {
-      const existing = await this.prisma.user.findUnique({
-        where: { email },
-        select: { id: true },
-      });
-      if (existing) {
-        throw new ConflictException('Unable to register with these details');
-      }
-    } catch (error) {
-      if (error instanceof ConflictException) {
-        throw error;
-      }
-      throw new ServiceUnavailableException('Authentication unavailable');
+    const registrationMode = this.config.getOrThrow<'public' | 'invite-only'>(
+      'REGISTRATION_MODE',
+    );
+    if (registrationMode === 'invite-only' && !input.invitationToken) {
+      throw new ForbiddenException('Registration requires a valid invitation');
     }
 
     const passwordHash = await argon2.hash(input.password, ARGON2_OPTIONS);
     try {
-      const user = await this.prisma.user.create({
-        data: {
-          email,
-          name: input.name.trim(),
-          passwordHash,
+      const user = await this.prisma.$transaction(
+        async (transaction) => {
+          const existing = await transaction.user.findUnique({
+            where: { email },
+            select: { id: true },
+          });
+          if (existing) {
+            throw new ConflictException(
+              'Unable to register with these details',
+            );
+          }
+
+          if (registrationMode === 'invite-only') {
+            const tokenHash = createHash('sha256')
+              .update(input.invitationToken!)
+              .digest('hex');
+            const invitation = await transaction.invitation.findUnique({
+              where: { tokenHash },
+              select: {
+                email: true,
+                expiresAt: true,
+                acceptedAt: true,
+                revokedAt: true,
+              },
+            });
+            if (
+              !invitation ||
+              invitation.email.trim().toLowerCase() !== email ||
+              invitation.expiresAt <= new Date() ||
+              invitation.acceptedAt ||
+              invitation.revokedAt
+            ) {
+              throw new ForbiddenException(
+                'Registration requires a valid invitation',
+              );
+            }
+          }
+
+          return transaction.user.create({
+            data: {
+              email,
+              name: input.name.trim(),
+              passwordHash,
+            },
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              emailVerifiedAt: true,
+            },
+          });
         },
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          emailVerifiedAt: true,
-        },
-      });
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+      );
       return {
         id: user.id,
         email: user.email,
@@ -73,8 +112,14 @@ export class AuthService {
       };
     } catch (error) {
       if (
+        error instanceof ConflictException ||
+        error instanceof ForbiddenException
+      ) {
+        throw error;
+      }
+      if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
+        (error.code === 'P2002' || error.code === 'P2034')
       ) {
         throw new ConflictException('Unable to register with these details');
       }

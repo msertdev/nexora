@@ -74,3 +74,72 @@ test("collaboration API failures retain HTTP status for permission and conflict 
     globalThis.fetch = originalFetch;
   }
 });
+
+test("registration sends an invitation token only in the JSON body", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (input, init) => {
+    calls.push({ url: String(input), init });
+    return new Response(
+      JSON.stringify({
+        id: "user-id",
+        email: "member@example.test",
+        name: "Member",
+        emailVerified: false,
+      }),
+      { status: 201, headers: { "Content-Type": "application/json" } },
+    );
+  };
+  try {
+    await apiClient.register({
+      email: "member@example.test",
+      name: "Member",
+      password: "synthetic-password",
+      invitationToken: "synthetic-invitation-token",
+    });
+    assert.equal(new URL(calls[0].url).search, "");
+    assert.equal(new URL(calls[0].url).hash, "");
+    assert.equal(calls[0].init.credentials, "include");
+    assert.deepEqual(JSON.parse(calls[0].init.body), {
+      email: "member@example.test",
+      name: "Member",
+      password: "synthetic-password",
+      invitationToken: "synthetic-invitation-token",
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("invitation creation response contract does not include a bearer link", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        id: "invitation-id",
+        organizationId: "org-id",
+        email: "member@example.test",
+        role: "MEMBER",
+        expiresAt: "2026-10-28T00:00:00.000Z",
+        acceptedAt: null,
+        revokedAt: null,
+        createdAt: "2026-10-21T00:00:00.000Z",
+        invitedBy: {
+          id: "owner-id",
+          name: "Owner",
+          email: "owner@example.test",
+        },
+      }),
+      { status: 201, headers: { "Content-Type": "application/json" } },
+    );
+  try {
+    const invitation = await apiClient.createInvitation("org-id", {
+      email: "member@example.test",
+      role: "MEMBER",
+    });
+    assert.equal("invitationLink" in invitation, false);
+    assert.equal("tokenHash" in invitation, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

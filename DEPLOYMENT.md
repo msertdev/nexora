@@ -39,20 +39,21 @@ your operational policy requires secrets to be mounted as files.
 `PUBLIC_APP_URL` must match the browser-visible origin exactly. It also
 determines email links and the API's allowed frontend Origin.
 
-| Variable | Purpose |
-| --- | --- |
-| `APP_DOMAIN` | Caddy site address. Production: public DNS name. Local: `:80`. |
-| `BIND_ADDRESS` | Address published by Caddy. Keep `127.0.0.1` for local tests. |
-| `HTTP_PORT`, `HTTPS_PORT` | Host-side Caddy ports. |
-| `COMPOSE_PROJECT_NAME` | Isolates containers and names the database volume. Use a new name for every disposable test environment. |
-| `NEXORA_IMAGE_TAG` | Image tag for this deployment. Use a release tag in production. |
-| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | PostgreSQL initialization settings. |
-| `DATABASE_URL` | API and migration connection string; host must be `db` inside Compose. |
-| `PUBLIC_APP_URL` | Public app origin; HTTPS is required in production. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | SMTP endpoint and transport TLS mode. |
-| `SMTP_USER`, `SMTP_PASSWORD` | Optional SMTP credentials; configure both or neither. |
-| `SMTP_FROM` | Sender address accepted by the SMTP server. |
-| `MAILPIT_SMTP_PORT`, `MAILPIT_WEB_PORT` | Host ports for the local-test Mailpit overlay only. |
+| Variable                                            | Purpose                                                                                                                                            |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_DOMAIN`                                        | Caddy site address. Production: public DNS name. Local: `:80`.                                                                                     |
+| `BIND_ADDRESS`                                      | Address published by Caddy. Keep `127.0.0.1` for local tests.                                                                                      |
+| `HTTP_PORT`, `HTTPS_PORT`                           | Host-side Caddy ports.                                                                                                                             |
+| `COMPOSE_PROJECT_NAME`                              | Isolates containers and names the database volume. Use a new name for every disposable test environment.                                           |
+| `NEXORA_IMAGE_TAG`                                  | Image tag for this deployment. Use a release tag in production.                                                                                    |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | PostgreSQL initialization settings.                                                                                                                |
+| `DATABASE_URL`                                      | API and migration connection string; host must be `db` inside Compose.                                                                             |
+| `PUBLIC_APP_URL`                                    | Public app origin; HTTPS is required in production.                                                                                                |
+| `REGISTRATION_MODE`                                 | `invite-only` disables public signup; `public` enables unrestricted signup. Production defaults to `invite-only`; local-test defaults to `public`. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`             | SMTP endpoint and transport TLS mode.                                                                                                              |
+| `SMTP_USER`, `SMTP_PASSWORD`                        | Optional SMTP credentials; configure both or neither.                                                                                              |
+| `SMTP_FROM`                                         | Sender address accepted by the SMTP server.                                                                                                        |
+| `MAILPIT_SMTP_PORT`, `MAILPIT_WEB_PORT`             | Host ports for the local-test Mailpit overlay only.                                                                                                |
 
 ## Local isolated self-hosted test
 
@@ -76,7 +77,9 @@ explicitly using this overlay.
    `http://localhost:8026`. Mailpit SMTP is available on host port 1026.
    The API connects to the Mailpit container on its private Compose network.
 5. Registration, verification and invitation flows may be tested with
-   disposable test accounts created only in this isolated volume.
+   disposable test accounts created only in this isolated volume. The local
+   example explicitly enables public registration; set
+   `REGISTRATION_MODE=invite-only` to exercise restricted signup.
 
 The `:80` Caddy address disables automatic HTTPS for this loopback-only mode.
 It is not suitable for public exposure. To inspect services:
@@ -110,6 +113,8 @@ destructive volume removal command.
    - `BIND_ADDRESS=0.0.0.0`, `HTTP_PORT=80`, `HTTPS_PORT=443`;
    - SMTP values for a real, reachable server (never Mailpit or a loopback
      address).
+   - `REGISTRATION_MODE=invite-only` unless unrestricted account creation is
+     an explicit deployment policy.
 3. Build and start:
 
    ```sh
@@ -120,9 +125,29 @@ destructive volume removal command.
    API startup is gated on the successful `prisma migrate deploy` one-shot
    service. If a migration fails, investigate the migration logs and do not
    bypass the gate or start the API against an incompatible schema.
+
 4. Visit `https://<APP_DOMAIN>`. Caddy forwards `/api/*` to NestJS and all
    other paths to Next.js. Browser API requests use the same origin, so the
    session cookie, Origin validation and CSRF checks continue to apply.
+5. For a new, empty database, create the initial verified workspace owner
+   through the interactive bootstrap command:
+
+   ```sh
+   docker compose --env-file deploy/runtime.env -p nexora-prod \
+     -f compose.prod.yaml exec api node dist/auth/bootstrap-admin.js
+   ```
+
+   It prompts for owner details and a hidden password, and creates the owner
+   and initial workspace atomically. It refuses non-interactive use and any
+   database that already contains users. There is no bootstrap HTTP endpoint
+   or reusable bootstrap secret. Existing installations do not run this
+   command.
+
+With invite-only registration, an invited recipient can open the emailed
+invitation link and create an account using the invitation email. The API
+checks that the token is active and belongs to that email; the user must still
+verify the account, sign in, and accept the invitation. Invitation creation
+responses do not return bearer links; the link is delivered by email only.
 
 The API trusts one proxy hop, matching this topology: the API has no published
 port and Caddy is its only ingress proxy. Do not attach untrusted containers
