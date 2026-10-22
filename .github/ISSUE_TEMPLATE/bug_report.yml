@@ -1,0 +1,49 @@
+name: Bug report
+description: Report a reproducible problem in NEXORA
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include passwords, environment files, session cookies, invitation links, verification tokens, or real user data.
+  - type: input
+    id: version
+    attributes:
+      label: NEXORA version or commit
+      description: Include the image tag or Git commit if available.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      options:
+        - Web application
+        - API
+        - Docker deployment
+        - Email delivery
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide the smallest repeatable sequence using disposable data.
+      placeholder: "1. ...\n2. ..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, browser, Docker/Compose, and relevant configuration mode. Redact secrets.
+    validations:
+      required: true
