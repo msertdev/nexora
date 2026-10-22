@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="160" viewBox="0 0 600 160" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">NEXORA logo</title>
+  <desc id="desc">A connected-node N mark beside a geometric NEXORA wordmark.</desc>
+  <defs>
+    <linearGradient id="mark-line" x1="24" y1="32" x2="96" y2="112" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#37D7FF"/>
+      <stop offset="1" stop-color="#3478FF"/>
+    </linearGradient>
+    <linearGradient id="word-line" x1="160" y1="44" x2="560" y2="116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7FAFF"/>
+      <stop offset="1" stop-color="#B9CCEB"/>
+    </linearGradient>
+    <filter id="node-glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="3.5"/>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="144" height="144" rx="36" fill="#071225"/>
+  <rect x="8.75" y="8.75" width="142.5" height="142.5" rx="35.25" stroke="#1C3965" stroke-width="1.5"/>
+  <path d="M45 111V49L115 111V49" stroke="url(#mark-line)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="45" cy="49" r="10" fill="#37D7FF" opacity="0.18" filter="url(#node-glow)"/>
+  <circle cx="45" cy="111" r="10" fill="#3478FF" opacity="0.2" filter="url(#node-glow)"/>
+  <circle cx="115" cy="49" r="10" fill="#37D7FF" opacity="0.18" filter="url(#node-glow)"/>
+  <circle cx="115" cy="111" r="10" fill="#3478FF" opacity="0.2" filter="url(#node-glow)"/>
+  <g fill="#071225" stroke="url(#mark-line)" stroke-width="4">
+    <circle cx="45" cy="49" r="6"/>
+    <circle cx="45" cy="111" r="6"/>
+    <circle cx="80" cy="80" r="6"/>
+    <circle cx="115" cy="49" r="6"/>
+    <circle cx="115" cy="111" r="6"/>
+  </g>
+
+  <g stroke="url(#word-line)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M180 114V46L228 114V46"/>
+    <path d="M296 46H250V114H296M250 80H289"/>
+    <path d="M318 46L366 114M366 46L318 114"/>
+    <rect x="388" y="46" width="52" height="68" rx="22"/>
+    <path d="M464 114V46H486C501 46 510 52 510 63C510 74 501 80 486 80H464M487 80L514 114"/>
+    <path d="M536 114L562 46L588 114M546 89H578"/>
+  </g>
+</svg>

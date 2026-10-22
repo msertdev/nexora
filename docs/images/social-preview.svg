@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">NEXORA social preview</title>
+  <desc id="desc">NEXORA logo and open-source project description on a dark connected-node background.</desc>
+  <defs>
+    <linearGradient id="background" x1="70" y1="40" x2="1210" y2="610" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#071427"/>
+      <stop offset="0.55" stop-color="#050B18"/>
+      <stop offset="1" stop-color="#071020"/>
+    </linearGradient>
+    <radialGradient id="blue-aura" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1020 294) rotate(143) scale(522 410)">
+      <stop stop-color="#116DFF" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#116DFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="electric" x1="72" y1="60" x2="1190" y2="568" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3AD9FF"/>
+      <stop offset="0.55" stop-color="#2B8CFF"/>
+      <stop offset="1" stop-color="#556EFF"/>
+    </linearGradient>
+    <linearGradient id="word" x1="224" y1="98" x2="636" y2="216" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#C4D5F0"/>
+    </linearGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" stroke="#A7C8F5" stroke-opacity="0.035"/>
+    </pattern>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+    <filter id="soft-glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="640" fill="url(#background)"/>
+  <rect width="1280" height="640" fill="url(#grid)"/>
+  <rect width="1280" height="640" fill="url(#blue-aura)"/>
+  <path d="M0 1H1280V639H0Z" stroke="#1A3153" stroke-width="2"/>
+
+  <g opacity="0.8">
+    <circle cx="1044" cy="300" r="220" fill="#0A65FF" opacity="0.08" filter="url(#soft-glow)"/>
+    <path d="M751 174L889 107L1018 189L1145 114" stroke="#245EA5" stroke-width="2"/>
+    <path d="M760 405L902 332L1018 189L1109 338L1210 273" stroke="#2C73C6" stroke-width="2"/>
+    <path d="M902 332L1002 488L1109 338L1193 474" stroke="#245EA5" stroke-width="2"/>
+    <path d="M889 107L902 332M1145 114L1109 338" stroke="#183C6D" stroke-width="2" stroke-dasharray="5 10"/>
+    <path d="M751 174L760 405L1002 488" stroke="#183C6D" stroke-width="2" stroke-dasharray="5 10"/>
+    <g fill="#2A8FFF" opacity="0.2" filter="url(#glow)">
+      <circle cx="751" cy="174" r="16"/>
+      <circle cx="889" cy="107" r="16"/>
+      <circle cx="1018" cy="189" r="18"/>
+      <circle cx="1145" cy="114" r="16"/>
+      <circle cx="760" cy="405" r="16"/>
+      <circle cx="902" cy="332" r="18"/>
+      <circle cx="1002" cy="488" r="16"/>
+      <circle cx="1109" cy="338" r="18"/>
+      <circle cx="1210" cy="273" r="16"/>
+      <circle cx="1193" cy="474" r="16"/>
+    </g>
+    <g fill="#071225" stroke="url(#electric)" stroke-width="4">
+      <circle cx="751" cy="174" r="8"/>
+      <circle cx="889" cy="107" r="8"/>
+      <circle cx="1018" cy="189" r="9"/>
+      <circle cx="1145" cy="114" r="8"/>
+      <circle cx="760" cy="405" r="8"/>
+      <circle cx="902" cy="332" r="9"/>
+      <circle cx="1002" cy="488" r="8"/>
+      <circle cx="1109" cy="338" r="9"/>
+      <circle cx="1210" cy="273" r="8"/>
+      <circle cx="1193" cy="474" r="8"/>
+    </g>
+  </g>
+
+  <g transform="translate(74 74)">
+    <rect width="116" height="116" rx="29" fill="#08162B"/>
+    <rect x="0.75" y="0.75" width="114.5" height="114.5" rx="28.25" stroke="#1D4375" stroke-width="1.5"/>
+    <path d="M28 84V32L88 84V32" stroke="url(#electric)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <g fill="#08162B" stroke="url(#electric)" stroke-width="3.5">
+      <circle cx="28" cy="32" r="5.5"/>
+      <circle cx="28" cy="84" r="5.5"/>
+      <circle cx="58" cy="58" r="5.5"/>
+      <circle cx="88" cy="32" r="5.5"/>
+      <circle cx="88" cy="84" r="5.5"/>
+    </g>
+  </g>
+
+  <g transform="translate(224 80)" stroke="url(#word)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 104V36L48 104V36"/>
+    <path d="M116 36H70V104H116M70 70H109"/>
+    <path d="M138 36L186 104M186 36L138 104"/>
+    <rect x="208" y="36" width="52" height="68" rx="22"/>
+    <path d="M284 104V36H306C321 36 330 42 330 53C330 64 321 70 306 70H284M307 70L334 104"/>
+    <path d="M356 104L382 36L408 104M366 79H398"/>
+  </g>
+
+  <g font-family="Arial, Helvetica, sans-serif">
+    <text x="76" y="311" fill="#F5F8FD" font-size="46" font-weight="700" letter-spacing="-1.2">Self-hosted project &amp; team management</text>
+    <text x="78" y="357" fill="#91A8C9" font-size="22" font-weight="400" letter-spacing="0.2">Projects, priorities, and team delivery in one workspace.</text>
+
+    <g transform="translate(76 425)">
+      <rect width="282" height="46" rx="23" fill="#0B1B33" stroke="#24466F"/>
+      <circle cx="24" cy="23" r="5" fill="#39D6FF"/>
+      <text x="42" y="30" fill="#C5D7EF" font-size="17" font-weight="700" letter-spacing="1.4">OPEN SOURCE · APACHE-2.0</text>
+    </g>
+
+    <text x="78" y="550" fill="#6F88AB" font-size="18" font-weight="600" letter-spacing="1.1">GITHUB.COM/MSERTDEV/NEXORA</text>
+  </g>
+
+  <path d="M76 583H1204" stroke="#173252"/>
+  <rect x="76" y="582" width="154" height="2" rx="1" fill="url(#electric)"/>
+</svg>
