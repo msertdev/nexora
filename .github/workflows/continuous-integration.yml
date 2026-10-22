@@ -47,6 +47,9 @@ jobs:
       - name: Check API formatting
         run: pnpm --filter api exec prettier --check "src/**/*.ts" "test/**/*.ts"
 
+      - name: Generate Prisma client
+        run: pnpm --filter api exec prisma generate --config prisma7.config.ts
+
       - name: Lint API
         run: pnpm --filter api lint
 
