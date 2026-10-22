@@ -87,7 +87,9 @@ describe('EmailDeliveryService (mocked SMTP)', () => {
     expect(message.html).toContain('A&amp;B');
     expect(message.html).not.toContain('<Workspace>');
     expect(message.text).toContain('<Workspace>');
-    expect(message.html).toContain('https://nexora.example/invitations/accept#token=private');
+    expect(message.html).toContain(
+      'https://nexora.example/invitations/accept#token=private',
+    );
   });
 
   it('uses implicit TLS when SMTP_SECURE is enabled', async () => {
@@ -119,7 +121,10 @@ describe('EmailDeliveryService (mocked SMTP)', () => {
     const service = new EmailDeliveryService(config);
 
     await expect(
-      service.sendVerificationLink('person@example.com', 'https://app.test/link'),
+      service.sendVerificationLink(
+        'person@example.com',
+        'https://app.test/link',
+      ),
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
     expect(nodemailer.createTransport).not.toHaveBeenCalled();
     expect(sendMail).not.toHaveBeenCalled();

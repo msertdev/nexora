@@ -32,14 +32,11 @@ describe('Health endpoints', () => {
   });
 
   it('returns the API health payload', async () => {
-    await request(app.getHttpServer())
-      .get('/api/health')
-      .expect(200)
-      .expect({
-        status: 'ok',
-        service: 'nexora-api',
-        version: '0.1.0',
-      });
+    await request(app.getHttpServer()).get('/api/health').expect(200).expect({
+      status: 'ok',
+      service: 'nexora-api',
+      version: '0.1.0',
+    });
   });
 
   it('reports a healthy database connection', async () => {

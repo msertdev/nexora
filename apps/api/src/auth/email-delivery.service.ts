@@ -71,8 +71,7 @@ export class EmailDeliveryService {
     const portValue = this.config.get<string>('SMTP_PORT');
     const secureValue = this.config.get<string>('SMTP_SECURE');
     const user = this.config.get<string>('SMTP_USER')?.trim() || undefined;
-    const password =
-      this.config.get<string>('SMTP_PASSWORD') || undefined;
+    const password = this.config.get<string>('SMTP_PASSWORD') || undefined;
 
     if (!host || !from || !portValue || secureValue === undefined) {
       throw new Error('SMTP configuration is incomplete');
