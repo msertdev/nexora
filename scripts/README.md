@@ -41,6 +41,7 @@ POSIX shell:
 
 ```sh
 export NEXORA_PLAYWRIGHT_DIR="$(mktemp -d)"
+export PLAYWRIGHT_BROWSERS_PATH="$NEXORA_PLAYWRIGHT_DIR/ms-playwright"
 npm install --prefix "$NEXORA_PLAYWRIGHT_DIR" --no-save playwright
 npm exec --prefix "$NEXORA_PLAYWRIGHT_DIR" -- playwright install chromium
 ```
@@ -49,6 +50,7 @@ PowerShell:
 
 ```powershell
 $env:NEXORA_PLAYWRIGHT_DIR = Join-Path ([IO.Path]::GetTempPath()) "nexora-playwright"
+$env:PLAYWRIGHT_BROWSERS_PATH = Join-Path $env:NEXORA_PLAYWRIGHT_DIR "ms-playwright"
 npm install --prefix $env:NEXORA_PLAYWRIGHT_DIR --no-save playwright
 npm exec --prefix $env:NEXORA_PLAYWRIGHT_DIR -- playwright install chromium
 ```
@@ -58,16 +60,17 @@ the supported package-manager command for that host.
 
 ## Environment
 
-| Variable                | Required | Purpose                                                                                                                            |
-| ----------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `BASE_URL`              | Yes      | Loopback-only NEXORA web origin; use `http://localhost:8080` for the documented local stack                                        |
-| `NEXORA_PLAYWRIGHT_DIR` | Yes      | External directory containing `node_modules/playwright`                                                                            |
-| `NEXORA_DEMO_PASSWORD`  | Yes      | 12–128 character password shared by the synthetic seed accounts; deleted from the child process environment before Chromium starts |
-| `NEXORA_DEMO_EMAIL`     | No       | Seed owner email; defaults to `demo.owner@nexora.test`                                                                             |
-| `NEXORA_CAPTURE_OUTPUT` | No       | External parent directory for raw artifacts; defaults to a verified OS temporary directory                                         |
-| `NEXORA_ASSET_OUTPUT`   | No       | Final-asset directory inside the checkout; defaults to `docs/images`                                                               |
-| `NEXORA_CAPTURE_DATE`   | No       | ISO-8601 browser time used for deterministic rendering; defaults to 12:00:00 UTC on the current UTC date                           |
-| `FFMPEG_PATH`           | No       | FFmpeg executable path; defaults to `ffmpeg`                                                                                       |
+| Variable                   | Required | Purpose                                                                                                                            |
+| -------------------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `BASE_URL`                 | Yes      | Loopback-only NEXORA web origin; use `http://localhost:8080` for the documented local stack                                        |
+| `NEXORA_PLAYWRIGHT_DIR`    | Yes      | External directory containing `node_modules/playwright`                                                                            |
+| `PLAYWRIGHT_BROWSERS_PATH` | No       | External Chromium cache; set it during both browser installation and capture when using an isolated cache                          |
+| `NEXORA_DEMO_PASSWORD`     | Yes      | 12–128 character password shared by the synthetic seed accounts; deleted from the child process environment before Chromium starts |
+| `NEXORA_DEMO_EMAIL`        | No       | Seed owner email; defaults to `demo.owner@nexora.test`                                                                             |
+| `NEXORA_CAPTURE_OUTPUT`    | No       | External parent directory for raw artifacts; defaults to a verified OS temporary directory                                         |
+| `NEXORA_ASSET_OUTPUT`      | No       | Final-asset directory inside the checkout; defaults to `docs/images`                                                               |
+| `NEXORA_CAPTURE_DATE`      | No       | ISO-8601 browser time used for deterministic rendering; defaults to 12:00:00 UTC on the current UTC date                           |
+| `FFMPEG_PATH`              | No       | FFmpeg executable path; defaults to `ffmpeg`                                                                                       |
 
 `BASE_URL` rejects non-loopback hosts, credentials, paths, query strings, and
 fragments. Playwright and raw capture paths are rejected when they resolve
