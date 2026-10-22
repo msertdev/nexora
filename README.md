@@ -138,7 +138,7 @@ pnpm audit --prod
 ```
 
 Docker Compose validation and image build commands are in
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) and
+[`.github/workflows/continuous-integration.yml`](.github/workflows/continuous-integration.yml) and
 [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Continuous integration

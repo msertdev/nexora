@@ -42,7 +42,7 @@ jobs:
         run: pnpm audit --prod
 
       - name: Validate workflow YAML
-        run: pnpm exec prettier --check .github/workflows/ci.yml
+        run: pnpm exec prettier --check .github/workflows/continuous-integration.yml
 
       - name: Check API formatting
         run: pnpm --filter api exec prettier --check "src/**/*.ts" "test/**/*.ts"
