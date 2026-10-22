@@ -168,5 +168,11 @@ are available, but this repository has not completed its first public release
 gates. Review the security policy and current release notes before operating
 an internet-facing instance.
 
-**License:** No license has been selected yet. Do not assume permission to
-reuse, distribute, or modify this project until a license is added.
+## License
+
+Copyright 2026 Murat Sert.
+
+Except for third-party material identified in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), NEXORA is licensed under the
+[Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE) for the project's
+attribution notice.

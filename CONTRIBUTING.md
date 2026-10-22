@@ -64,6 +64,7 @@ against a non-disposable environment.
   assumptions explicitly.
 - Keep each pull request reviewable and avoid unrelated formatting churn.
 
-No project license has been selected yet. Discuss licensing and redistribution
-terms with the maintainer before submitting code that depends on a particular
-license being granted.
+Unless explicitly stated otherwise, contributions intentionally submitted for
+inclusion in NEXORA are provided under the Apache License, Version 2.0, as
+described in Section 5 of [LICENSE](LICENSE). Only submit work that you have the
+right to contribute, and clearly identify any compatible third-party material.
