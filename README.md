@@ -1,6 +1,13 @@
+<p align="center">
+  <img src="docs/images/logo.svg" alt="NEXORA logo with a connected-node N mark" width="560">
+</p>
+
 # NEXORA
 
 [![CI](https://github.com/msertdev/nexora/actions/workflows/continuous-integration.yml/badge.svg?branch=main)](https://github.com/msertdev/nexora/actions/workflows/continuous-integration.yml)
+[![License: Apache-2.0](https://img.shields.io/github/license/msertdev/nexora)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/msertdev/nexora)](https://github.com/msertdev/nexora/commits/main)
+[![GitHub stars](https://img.shields.io/github/stars/msertdev/nexora?style=flat)](https://github.com/msertdev/nexora/stargazers)
 
 **A self-hosted workspace for projects, priorities, and team delivery.**
 
@@ -8,10 +15,23 @@ NEXORA brings organizations, projects, and issue tracking together in one
 workspace. It is built as a TypeScript monorepo and can be deployed on your own
 infrastructure with Docker Compose, PostgreSQL, and Caddy.
 
-![NEXORA issue workspace](docs/images/nexora-workspace.png)
+[![Animated NEXORA workflow creating, assigning, prioritizing, and progressing an issue](docs/images/nexora-demo.gif)](docs/images/nexora-demo.webm)
 
-The screenshot shows the real NEXORA web application running in an isolated
-local production deployment. The workspace and issue are disposable test data.
+The demo shows the real NEXORA web application running in the isolated local
+deployment with fictional data. Open the image to view the higher-quality WebM
+recording.
+
+## Why NEXORA?
+
+- **Self-hosted by design.** Teams can keep project and account data on
+  infrastructure they operate.
+- **One coherent workspace.** Organizations, projects, issues, assignments,
+  priorities, and roles share one permission model and interface.
+- **Security-conscious defaults.** NEXORA uses database-backed sessions,
+  HttpOnly cookies, request-origin validation, and an operator-controlled
+  invite-only registration mode.
+- **Documented operations.** Docker Compose, Caddy, PostgreSQL, SMTP, and the
+  isolated Mailpit test workflow are covered by the deployment guide.
 
 ## What it does
 
@@ -29,6 +49,46 @@ local production deployment. The workspace and issue are disposable test data.
 - Supports SMTP for production and an optional Mailpit overlay for local
   email-flow testing.
 
+## Screenshots
+
+### Issue workspace
+
+![Light-theme NEXORA issue list showing fictional AI Agent v1 work with statuses, priorities, assignees, and due dates](docs/images/nexora-issue-list-light.webp)
+
+![Dark-theme NEXORA issue list for the fictional NEXORA AI Agent v1 project](docs/images/nexora-issue-list-dark.webp)
+
+### Issue workflow
+
+![NEXORA issue detail panel showing status, priority, assignee, and due date controls](docs/images/nexora-issue-detail.webp)
+
+![NEXORA create-issue dialog with project, assignee, status, priority, and due-date fields](docs/images/nexora-create-issue.webp)
+
+### Team and planning
+
+![NEXORA organization members dialog showing fictional OWNER, ADMIN, and MEMBER roles](docs/images/nexora-members-roles.webp)
+
+![NEXORA Roadmap status board grouping fictional issues by workflow state](docs/images/nexora-roadmap.webp)
+
+### Mobile layout
+
+![Mobile-width NEXORA issue list in dark theme](docs/images/nexora-mobile-issue-list.webp)
+
+## Roadmap
+
+Available today:
+
+- Issue list and detail views.
+- A Roadmap status board backed by project issue data.
+- Organization membership and role management.
+
+Planned:
+
+- Comments.
+- Labels.
+- Notifications.
+- [TODO] Clarify the scope of a separate configurable board view. NEXORA
+  already includes the Roadmap status board shown above.
+
 ## Architecture
 
 ```text
@@ -40,14 +100,14 @@ Caddy ── /api/* ──► NestJS API ──► PostgreSQL 17
   └── other paths ─► Next.js    └── SMTP server
 ```
 
-| Area | Technology |
-| --- | --- |
-| Web | Next.js 16, React 19, TypeScript |
-| API | NestJS, Node.js ESM, TypeScript |
-| Data | PostgreSQL 17, Prisma 7 |
-| Monorepo | pnpm workspaces, Turborepo |
-| Deployment | Docker Compose, Caddy |
-| Tests | Vitest, Node.js regression tests |
+| Area       | Technology                       |
+| ---------- | -------------------------------- |
+| Web        | Next.js 16, React 19, TypeScript |
+| API        | NestJS, Node.js ESM, TypeScript  |
+| Data       | PostgreSQL 17, Prisma 7          |
+| Monorepo   | pnpm workspaces, Turborepo       |
+| Deployment | Docker Compose, Caddy            |
+| Tests      | Vitest, Node.js regression tests |
 
 ## Quick start: isolated local deployment
 
