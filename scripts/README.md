@@ -69,7 +69,7 @@ the supported package-manager command for that host.
 | `NEXORA_DEMO_EMAIL`        | No       | Seed owner email; defaults to `demo.owner@nexora.test`                                                                             |
 | `NEXORA_CAPTURE_OUTPUT`    | No       | External parent directory for raw artifacts; defaults to a verified OS temporary directory                                         |
 | `NEXORA_ASSET_OUTPUT`      | No       | Final-asset directory inside the checkout; defaults to `docs/images`                                                               |
-| `NEXORA_CAPTURE_DATE`      | No       | ISO-8601 browser time used for deterministic rendering; defaults to 12:00:00 UTC on the current UTC date                           |
+| `NEXORA_CAPTURE_DATE`      | No       | Seed: UTC date (`YYYY-MM-DD`); capture: ISO-8601 browser timestamp. Both default to the current UTC date                           |
 | `FFMPEG_PATH`              | No       | FFmpeg executable path; defaults to `ffmpeg`                                                                                       |
 
 `BASE_URL` rejects non-loopback hosts, credentials, paths, query strings, and
@@ -101,6 +101,7 @@ printf "\n"
 export NEXORA_DEMO_PASSWORD
 export NEXORA_DEMO_BASE_URL="http://localhost:8080"
 export NEXORA_DEMO_MAILPIT_URL="http://localhost:8026"
+export NEXORA_CAPTURE_DATE="$(date -u +%F)"
 node scripts/demo-seed.mjs
 ```
 
@@ -111,6 +112,8 @@ $secret = Read-Host "Demo password" -AsSecureString
 $env:NEXORA_DEMO_PASSWORD = [Net.NetworkCredential]::new("", $secret).Password
 $env:NEXORA_DEMO_BASE_URL = "http://localhost:8080"
 $env:NEXORA_DEMO_MAILPIT_URL = "http://localhost:8026"
+$captureDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd")
+$env:NEXORA_CAPTURE_DATE = $captureDate
 node scripts/demo-seed.mjs
 ```
 
@@ -127,6 +130,7 @@ POSIX shell:
 export BASE_URL="http://localhost:8080"
 export NEXORA_CAPTURE_OUTPUT="$(mktemp -d)"
 export NEXORA_ASSET_OUTPUT="docs/images"
+export NEXORA_CAPTURE_DATE="${NEXORA_CAPTURE_DATE}T12:00:00.000Z"
 raw_video="$(node scripts/capture-screenshots.mjs)"
 printf "Raw video: %s\n" "$raw_video"
 unset NEXORA_DEMO_PASSWORD
@@ -138,6 +142,7 @@ PowerShell:
 $env:BASE_URL = "http://localhost:8080"
 $env:NEXORA_CAPTURE_OUTPUT = Join-Path ([IO.Path]::GetTempPath()) "nexora-captures"
 $env:NEXORA_ASSET_OUTPUT = "docs/images"
+$env:NEXORA_CAPTURE_DATE = "${captureDate}T12:00:00.000Z"
 $rawVideo = node scripts/capture-screenshots.mjs
 Write-Output "Raw video: $rawVideo"
 Remove-Item Env:NEXORA_DEMO_PASSWORD
