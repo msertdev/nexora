@@ -1026,7 +1026,10 @@ async function recordDemoVideo(browser, storageState, baseUrl, runDirectory) {
     );
     await pause(1_000);
 
-    const assignee = dialog.getByLabel("Assignee", { exact: true });
+    const assignee = dialog
+      .locator("label")
+      .filter({ hasText: /^Assignee/ })
+      .locator("select");
     await page.waitForFunction(
       ({ assigneeName, assigneeEmail }) => {
         const select = document.querySelector('[role="dialog"] select');
@@ -1049,13 +1052,19 @@ async function recordDemoVideo(browser, storageState, baseUrl, runDirectory) {
     await pause(1_500);
     await cursorSelect(
       page,
-      dialog.getByLabel("Priority", { exact: true }),
+      dialog
+        .locator("label")
+        .filter({ hasText: /^Priority/ })
+        .locator("select"),
       "HIGH",
     );
     await pause(1_500);
     await cursorSelect(
       page,
-      dialog.getByLabel("Status", { exact: true }),
+      dialog
+        .locator("label")
+        .filter({ hasText: /^Status/ })
+        .locator("select"),
       "IN_PROGRESS",
     );
     await pause(1_500);
@@ -1102,7 +1111,7 @@ async function recordDemoVideo(browser, storageState, baseUrl, runDirectory) {
     const remaining = minimumDuration - (Date.now() - startedAt);
     if (remaining > 0) await pause(remaining);
     const duration = Date.now() - startedAt;
-    if (duration > 29_000) {
+    if (duration > 30_000) {
       throw new Error(
         `Demo video took ${duration}ms; expected a successful local run to stay below 30 seconds`,
       );
