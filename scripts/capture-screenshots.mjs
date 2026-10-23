@@ -902,8 +902,8 @@ async function openRoadmap(page) {
 
 async function openInbox(page) {
   await page
-    .getByRole("navigation", { name: "Workspace navigation" })
-    .getByRole("button", { name: "Inbox", exact: true })
+    .locator(".workspace-sidebar")
+    .getByRole("button", { name: /^Inbox\b/ })
     .click();
   await page
     .locator('[aria-label="Issues in selected project"]')
