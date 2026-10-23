@@ -336,6 +336,16 @@ export const apiClient = {
     );
   },
 
+  issueByPermalink(
+    organizationSlug: string,
+    projectId: string,
+    issueNumber: number,
+  ) {
+    return request<Issue>(
+      `/api/organizations/by-slug/${encodeURIComponent(organizationSlug)}/projects/${encodeURIComponent(projectId)}/issues/${encodeURIComponent(String(issueNumber))}`,
+    );
+  },
+
   createIssue(organizationId: string, projectId: string, input: IssueInput) {
     return request<Issue>(
       `/api/organizations/${encodeURIComponent(organizationId)}/projects/${encodeURIComponent(projectId)}/issues`,

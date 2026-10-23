@@ -44,6 +44,12 @@ const ISSUE_FIELDS = {
   },
 } as const;
 
+const ORGANIZATION_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+const MAX_ORGANIZATION_SLUG_LENGTH = 83;
+const MAX_POSTGRES_INTEGER = 2_147_483_647;
+
 type ProjectTransaction = Prisma.TransactionClient;
 
 function isPrismaError(error: unknown, code: string): boolean {
@@ -258,6 +264,53 @@ export class ProjectsService {
     try {
       const issue = await this.prisma.issue.findFirst({
         where: { id: issueId, projectId },
+        select: ISSUE_FIELDS,
+      });
+      if (!issue) throw new NotFoundException('Issue not found');
+      return withIdentifier(issue);
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new ServiceUnavailableException('Issues unavailable');
+    }
+  }
+
+  async getIssueByPermalink(
+    userId: string,
+    organizationSlug: string,
+    projectId: string,
+    issueNumber: string,
+  ) {
+    const normalizedOrganizationSlug = organizationSlug.toLowerCase();
+    const normalizedProjectId = projectId.toLowerCase();
+    const parsedIssueNumber = Number(issueNumber);
+
+    if (
+      normalizedOrganizationSlug.length > MAX_ORGANIZATION_SLUG_LENGTH ||
+      !ORGANIZATION_SLUG_PATTERN.test(normalizedOrganizationSlug) ||
+      !UUID_PATTERN.test(normalizedProjectId) ||
+      !/^[1-9]\d*$/.test(issueNumber) ||
+      !Number.isSafeInteger(parsedIssueNumber) ||
+      parsedIssueNumber > MAX_POSTGRES_INTEGER
+    ) {
+      throw new NotFoundException('Issue not found');
+    }
+
+    try {
+      const issue = await this.prisma.issue.findFirst({
+        where: {
+          issueNumber: parsedIssueNumber,
+          project: {
+            is: {
+              id: normalizedProjectId,
+              organization: {
+                is: {
+                  slug: normalizedOrganizationSlug,
+                  memberships: { some: { userId } },
+                },
+              },
+            },
+          },
+        },
         select: ISSUE_FIELDS,
       });
       if (!issue) throw new NotFoundException('Issue not found');

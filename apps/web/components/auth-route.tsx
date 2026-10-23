@@ -1,19 +1,20 @@
 "use client";
 
 import { useEffect, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "./auth-provider";
-import { safeAuthReturnTo } from "../lib/team-collaboration";
+import { loginPathFor, safeAuthReturnTo } from "../lib/team-collaboration";
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
   const auth = useAuth();
+  const pathname = usePathname();
   const router = useRouter();
 
   useEffect(() => {
     if (auth.status === "unauthenticated") {
-      router.replace("/login");
+      router.replace(loginPathFor(pathname));
     }
-  }, [auth.status, router]);
+  }, [auth.status, pathname, router]);
 
   if (auth.status === "unavailable") {
     return (
@@ -39,7 +40,9 @@ export function PublicOnlyRoute({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (auth.status === "authenticated") {
-      const returnTo = new URLSearchParams(window.location.search).get("returnTo");
+      const returnTo = new URLSearchParams(window.location.search).get(
+        "returnTo",
+      );
       router.replace(safeAuthReturnTo(returnTo));
     }
   }, [auth.status, router]);

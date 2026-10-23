@@ -5,6 +5,7 @@ import {
   canInviteRole,
   canRemoveMember,
   invitationFailureState,
+  loginPathFor,
   safeAuthReturnTo,
   verificationFailureState,
 } from "./team-collaboration.ts";
@@ -42,10 +43,33 @@ test("verification and invitation failures map to explicit safe UI states", () =
 });
 
 test("authentication return paths allow only the required internal flows", () => {
+  const projectId = "6ed463d6-d31a-4a0e-a913-94130ab22fd4";
   assert.equal(safeAuthReturnTo("/invitations/accept"), "/invitations/accept");
   assert.equal(safeAuthReturnTo("/verify-email"), "/verify-email");
+  assert.equal(
+    safeAuthReturnTo(
+      `/orgs/Example-Team/projects/${projectId.toUpperCase()}/issues/42`,
+    ),
+    `/orgs/example-team/projects/${projectId}/issues/42`,
+  );
   assert.equal(safeAuthReturnTo("//attacker.example"), "/");
   assert.equal(safeAuthReturnTo("https://attacker.example"), "/");
   assert.equal(safeAuthReturnTo("/admin"), "/");
+  assert.equal(
+    safeAuthReturnTo(
+      `/orgs/example-team/projects/${projectId}/issues/not-a-number`,
+    ),
+    "/",
+  );
   assert.equal(safeAuthReturnTo(null), "/");
+});
+
+test("protected routes retain only safe issue paths through authentication", () => {
+  const projectId = "6ed463d6-d31a-4a0e-a913-94130ab22fd4";
+  assert.equal(loginPathFor("/"), "/login");
+  assert.equal(
+    loginPathFor(`/orgs/example-team/projects/${projectId}/issues/42`),
+    `/login?returnTo=${encodeURIComponent(`/orgs/example-team/projects/${projectId}/issues/42`)}`,
+  );
+  assert.equal(loginPathFor("//attacker.example"), "/login");
 });
