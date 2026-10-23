@@ -3,6 +3,9 @@ packages:
   - "packages/*"
 overrides:
   '@humanfs/node@0.16': 0.16.8
+  # Next's ESLint plugin only uses globSync(..., { onlyDirectories: true }).
+  # Keep this scoped replacement until it drops fast-glob's unpatched braces chain.
+  '@next/eslint-plugin-next>fast-glob': npm:tinyglobby@0.2.17
   nanoid@3: 3.3.18
   picomatch@2: 2.3.2
   source-map-js: 1.2.2

@@ -1,14 +1,3 @@
 {
-  "exceptions": [
-    {
-      "githubAdvisoryId": "GHSA-vfj7-8cjw-p6xm",
-      "package": "braces",
-      "version": "3.0.3",
-      "devOnly": true,
-      "severity": "high",
-      "owner": "msertdev",
-      "reviewBy": "2026-11-30",
-      "rationale": "No patched braces release is available. The dependency is reachable only through the Next.js ESLint development toolchain and is absent from the production dependency audit."
-    }
-  ]
+  "exceptions": []
 }
