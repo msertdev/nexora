@@ -8,7 +8,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { useLocalStorage } from "../hooks/use-local-storage";
 import {
@@ -40,6 +40,11 @@ import {
   type TaskPriority,
   type TaskStatus,
 } from "../lib/workspace-data";
+import {
+  buildIssuePath,
+  isIssuePath,
+  parseIssuePath,
+} from "../lib/issue-routes";
 import Image from "next/image";
 
 type ThemeMode = "light" | "dark";
@@ -52,7 +57,13 @@ type IssueDraft = {
   assigneeId: string;
   dueDate: string;
 };
-type ApiTask = Task & { identifier: string; projectId: string; assigneeId: string | null };
+type ApiTask = Task & {
+  identifier: string;
+  projectId: string;
+  issueNumber: number;
+  assigneeId: string | null;
+};
+type PermalinkStatus = "idle" | "loading" | "ready" | "not-found" | "error";
 type IconName =
   | "inbox"
   | "issues"
@@ -68,12 +79,14 @@ type IconName =
   | "back"
   | "forward"
   | "filter"
+  | "link"
   | "lock";
 
 const THEME_KEY = "nexora.workspace.theme";
 const issuePriorities: IssuePriority[] = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 const projectLimit = 100;
 const issueLimit = 100;
+const issueHistoryMarker = "nexoraIssueFromList";
 
 function toTaskPriority(priority: IssuePriority): TaskPriority {
   switch (priority) {
@@ -99,6 +112,7 @@ function toApiTask(issue: Issue, projects: Project[]): ApiTask {
     id: issue.id,
     identifier: issue.identifier,
     projectId: issue.projectId,
+    issueNumber: issue.issueNumber,
     title: issue.title,
     description: issue.description ?? "",
     project: project?.name ?? issue.project.key,
@@ -190,6 +204,7 @@ function Icon({ name, className = "" }: { name: IconName; className?: string }) 
     back: <><path d="m14.5 18-6-6 6-6" /><path d="M9 12h11" /></>,
     forward: <><path d="m9.5 18 6-6-6-6" /><path d="M15 12H4" /></>,
     filter: <><path d="M4 6h16M7 12h10m-7 6h4" /></>,
+    link: <><path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1" /><path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1" /></>,
     lock: <><rect x="5" y="10" width="14" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></>,
   };
 
@@ -545,7 +560,9 @@ function TaskDetailPanel({
   error,
   memberError,
   memberLoading,
+  copyState,
   onClose,
+  onCopyLink,
   onEdit,
   onSave,
   onRetryMembers,
@@ -556,7 +573,9 @@ function TaskDetailPanel({
   error: string;
   memberError: string | null;
   memberLoading: boolean;
+  copyState: "idle" | "copied" | "error";
   onClose: () => void;
+  onCopyLink: () => void;
   onEdit: () => void;
   onSave: (input: {
     status: IssueStatus;
@@ -578,10 +597,18 @@ function TaskDetailPanel({
         <div className="detail-panel__topline">
           <span>{task.identifier}</span>
           <div>
+            <button type="button" onClick={onCopyLink} aria-label="Copy issue link" title="Copy issue link"><Icon name="link" /></button>
             <button type="button" onClick={onEdit} aria-label="Edit issue"><Icon name="edit" /></button>
             <button type="button" onClick={onClose} aria-label="Close details"><Icon name="close" /></button>
           </div>
         </div>
+        <span className="sr-only" role="status" aria-live="polite">
+          {copyState === "copied"
+            ? "Issue link copied."
+            : copyState === "error"
+              ? "Unable to copy issue link."
+              : ""}
+        </span>
         <h2>{task.title}</h2>
         <p className="detail-panel__description">{task.description || "No description provided."}</p>
         <form className="detail-fields" onSubmit={(event) => {
@@ -606,6 +633,12 @@ export function IssueWorkspace() {
   const { user, setUser } = useAuth();
   const workspaces = useWorkspaces();
   const router = useRouter();
+  const pathname = usePathname();
+  const issueRoute = useMemo(() => parseIssuePath(pathname), [pathname]);
+  const issueRouteScope = issueRoute
+    ? `${issueRoute.organizationSlug}:${issueRoute.projectId}:${issueRoute.issueNumber}`
+    : null;
+  const invalidIssuePath = isIssuePath(pathname) && !issueRoute;
   const { value: theme, setValue: setTheme, ready: themeReady } = useLocalStorage<ThemeMode>(THEME_KEY, "dark");
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
@@ -622,6 +655,13 @@ export function IssueWorkspace() {
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [permalinkIssue, setPermalinkIssue] = useState<Issue | null>(null);
+  const [permalinkScope, setPermalinkScope] = useState<string | null>(null);
+  const [permalinkStatus, setPermalinkStatus] = useState<PermalinkStatus>(
+    invalidIssuePath ? "not-found" : issueRoute ? "loading" : "idle",
+  );
+  const [permalinkRefresh, setPermalinkRefresh] = useState(0);
+  const [copyLinkState, setCopyLinkState] = useState<"idle" | "copied" | "error">("idle");
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingIssueId, setEditingIssueId] = useState<string | null>(null);
   const [draft, setDraft] = useState<IssueDraft>(getEmptyDraft());
@@ -661,8 +701,11 @@ export function IssueWorkspace() {
   const issueRequestId = useRef(0);
   const issueMutationRequestId = useRef(0);
   const memberRequestId = useRef(0);
+  const permalinkRequestId = useRef(0);
   const organizationId = workspaces.selectedOrganization?.id ?? null;
   const userId = user?.id ?? null;
+  const scopedPermalinkIssue =
+    permalinkScope === issueRouteScope ? permalinkIssue : null;
   const projects =
     projectState.organizationId === organizationId ? projectState.items : [];
   const projectStatus =
@@ -699,6 +742,76 @@ export function IssueWorkspace() {
   useEffect(() => {
     if (themeReady) document.documentElement.dataset.theme = theme;
   }, [theme, themeReady]);
+
+  useEffect(() => {
+    const requestId = ++permalinkRequestId.current;
+    setCopyLinkState("idle");
+
+    if (invalidIssuePath) {
+      setPermalinkIssue(null);
+      setPermalinkScope(null);
+      setPermalinkStatus("not-found");
+      setSelectedIssueId(null);
+      setIsDetailOpen(false);
+      return;
+    }
+
+    if (!issueRoute) {
+      setPermalinkIssue(null);
+      setPermalinkScope(null);
+      setPermalinkStatus("idle");
+      setSelectedIssueId(null);
+      setIsDetailOpen(false);
+      return;
+    }
+
+    if (!userId) return;
+
+    setPermalinkIssue(null);
+    setPermalinkScope(null);
+    setSelectedIssueId(null);
+    setIsDetailOpen(false);
+    setPermalinkStatus("loading");
+    void apiClient
+      .issueByPermalink(
+        issueRoute.organizationSlug,
+        issueRoute.projectId,
+        issueRoute.issueNumber,
+      )
+      .then((issue) => {
+        if (requestId !== permalinkRequestId.current) return;
+        setPermalinkIssue(issue);
+        setPermalinkScope(issueRouteScope);
+        setPermalinkStatus("ready");
+      })
+      .catch((error: unknown) => {
+        if (requestId !== permalinkRequestId.current) return;
+        setPermalinkIssue(null);
+        setPermalinkScope(null);
+        setSelectedIssueId(null);
+        setIsDetailOpen(false);
+        if (error instanceof ApiError && error.status === 401) {
+          setUser(null);
+          return;
+        }
+        setPermalinkStatus(
+          error instanceof ApiError && error.status === 404
+            ? "not-found"
+            : "error",
+        );
+      });
+
+    return () => {
+      permalinkRequestId.current += 1;
+    };
+  }, [
+    invalidIssuePath,
+    issueRoute,
+    issueRouteScope,
+    permalinkRefresh,
+    setUser,
+    userId,
+  ]);
 
   useEffect(() => {
     if (!organizationId || !userId) {
@@ -758,13 +871,79 @@ export function IssueWorkspace() {
 
   useEffect(() => {
     setPage(1);
-    setSelectedIssueId(null);
-    setIsDetailOpen(false);
+    if (!issueRoute) {
+      setSelectedIssueId(null);
+      setIsDetailOpen(false);
+    }
     setIsEditorOpen(false);
     setPriorityFilter("");
     setStatusFilter("");
     setSearchTerm("");
-  }, [organizationId, selectedProjectId]);
+  }, [issueRoute, organizationId, selectedProjectId]);
+
+  useEffect(() => {
+    if (
+      !issueRoute ||
+      permalinkStatus !== "ready" ||
+      !scopedPermalinkIssue ||
+      isEditorOpen ||
+      workspaces.status !== "ready"
+    ) {
+      return;
+    }
+
+    const routeOrganization = workspaces.organizations.find(
+      (organization) => organization.slug === issueRoute.organizationSlug,
+    );
+    if (!routeOrganization) {
+      setPermalinkStatus("not-found");
+      setSelectedIssueId(null);
+      setIsDetailOpen(false);
+      return;
+    }
+
+    if (workspaces.selectedOrganization?.id !== routeOrganization.id) {
+      workspaces.selectOrganization(routeOrganization.id);
+      return;
+    }
+
+    if (projectStatus !== "ready") return;
+    const routeProject = projects.find(
+      (project) =>
+        project.id === issueRoute.projectId &&
+        project.id === scopedPermalinkIssue.projectId,
+    );
+    if (!routeProject) {
+      setPermalinkStatus("not-found");
+      setSelectedIssueId(null);
+      setIsDetailOpen(false);
+      return;
+    }
+
+    if (selectedProjectId !== routeProject.id) {
+      setSelectedProjectId(routeProject.id);
+      if (userId) {
+        storeProject(userId, routeOrganization.id, routeProject.id);
+      }
+      return;
+    }
+
+    setSelectedIssueId(scopedPermalinkIssue.id);
+    setIsDetailOpen(true);
+  }, [
+    issueRoute,
+    isEditorOpen,
+    permalinkStatus,
+    projectStatus,
+    projects,
+    selectedProjectId,
+    scopedPermalinkIssue,
+    userId,
+    workspaces.organizations,
+    workspaces.selectedOrganization,
+    workspaces.selectOrganization,
+    workspaces.status,
+  ]);
 
   useEffect(() => {
     issueMutationRequestId.current += 1;
@@ -774,9 +953,11 @@ export function IssueWorkspace() {
   }, [issueMutationScope]);
 
   useEffect(() => {
-    setSelectedIssueId(null);
-    setIsDetailOpen(false);
-  }, [page, priorityFilter, statusFilter, view]);
+    if (!issueRoute) {
+      setSelectedIssueId(null);
+      setIsDetailOpen(false);
+    }
+  }, [issueRoute, page, priorityFilter, statusFilter, view]);
 
   useEffect(() => {
     if (!organizationId || !selectedProject || !userId) {
@@ -883,8 +1064,14 @@ export function IssueWorkspace() {
 
   const groupedTasks = groupTasksByStatus(filteredTasks);
   const activeCount = filteredTasks.filter((task) => task.status !== "done").length;
+  const permalinkTask = useMemo(
+    () => scopedPermalinkIssue ? toApiTask(scopedPermalinkIssue, projects) : null,
+    [projects, scopedPermalinkIssue],
+  );
   const selectedTask =
-    pageTasks.find((task) => task.id === selectedIssueId) ?? null;
+    (permalinkTask?.id === selectedIssueId ? permalinkTask : null) ??
+    pageTasks.find((task) => task.id === selectedIssueId) ??
+    null;
 
   function applySavedIssue(issue: Issue, scope: string) {
     setIssueState((current) => {
@@ -908,6 +1095,72 @@ export function IssueWorkspace() {
       (!priorityFilter || issue.priority === priorityFilter) &&
       (view !== "my-issues" || issue.assigneeId === userId)
     );
+  }
+
+  function openIssueDetails(task: ApiTask) {
+    const organization = workspaces.selectedOrganization;
+    if (!organization || typeof window === "undefined") return;
+    const nextPath = buildIssuePath({
+      organizationSlug: organization.slug,
+      projectId: task.projectId,
+      issueNumber: task.issueNumber,
+    });
+    setSelectedIssueId(task.id);
+    setIsDetailOpen(true);
+    setCopyLinkState("idle");
+    if (pathname !== nextPath) {
+      // Next copies its internal history fields into custom state. Passing its
+      // existing state back would bypass the App Router pathname update.
+      window.history.pushState(
+        { [issueHistoryMarker]: true },
+        "",
+        nextPath,
+      );
+    }
+  }
+
+  function closeIssueDetails() {
+    setSelectedIssueId(null);
+    setIsDetailOpen(false);
+    setPermalinkIssue(null);
+    setPermalinkScope(null);
+    setPermalinkStatus("idle");
+    setCopyLinkState("idle");
+    if (!issueRoute && !invalidIssuePath) return;
+
+    if (window.history.state?.[issueHistoryMarker] === true) {
+      window.history.back();
+      return;
+    }
+    // Keep the payload custom-only so Next synchronizes usePathname.
+    window.history.replaceState(
+      { [issueHistoryMarker]: false },
+      "",
+      "/",
+    );
+  }
+
+  async function copyIssueLink(task: ApiTask) {
+    const organization = workspaces.selectedOrganization;
+    if (!organization || typeof window === "undefined") {
+      setCopyLinkState("error");
+      return;
+    }
+    const issueUrl = new URL(
+      buildIssuePath({
+        organizationSlug: organization.slug,
+        projectId: task.projectId,
+        issueNumber: task.issueNumber,
+      }),
+      window.location.origin,
+    ).toString();
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard is unavailable");
+      await navigator.clipboard.writeText(issueUrl);
+      setCopyLinkState("copied");
+    } catch {
+      setCopyLinkState("error");
+    }
   }
 
   function openCreateModal() {
@@ -980,6 +1233,9 @@ export function IssueWorkspace() {
         } else {
           setIssueRefresh((value) => value + 1);
         }
+        setPermalinkIssue((current) =>
+          current?.id === savedIssue.id ? savedIssue : current,
+        );
       } else {
         await apiClient.createIssue(organizationId, selectedProject.id, input);
         if (requestId !== issueMutationRequestId.current) {
@@ -1050,7 +1306,12 @@ export function IssueWorkspace() {
       dueDate: string | null;
     },
   ) {
-    if (detailSaving || !organizationId || !selectedProject) return;
+    if (
+      detailSaving ||
+      !organizationId ||
+      !selectedProject ||
+      selectedProject.id !== task.projectId
+    ) return;
     const requestId = ++issueMutationRequestId.current;
     const mutationScope = issueScope;
     setDetailSaving(true);
@@ -1072,8 +1333,11 @@ export function IssueWorkspace() {
       } else {
         setIssueRefresh((value) => value + 1);
       }
+      setPermalinkIssue((current) =>
+        current?.id === savedIssue.id ? savedIssue : current,
+      );
       setSuccessMessage("Issue updated.");
-      setIsDetailOpen(false);
+      closeIssueDetails();
     } catch (error) {
       if (requestId !== issueMutationRequestId.current) return;
       if (error instanceof ApiError && error.status === 401) setUser(null);
@@ -1161,6 +1425,7 @@ export function IssueWorkspace() {
               onToggleFilters={() => setFiltersOpen((current) => !current)}
               onProjectChange={(projectId) => {
                 if (!projects.some((project) => project.id === projectId)) return;
+                closeIssueDetails();
                 setSelectedProjectId(projectId);
                 if (userId && organizationId) {
                   storeProject(userId, organizationId, projectId);
@@ -1197,7 +1462,7 @@ export function IssueWorkspace() {
             onNavigate={(nextView) => {
               setView(nextView);
               setFiltersOpen(nextView === "views");
-              setIsDetailOpen(false);
+              closeIssueDetails();
             }}
             onCreate={openCreateModal}
             onSearch={toggleSearch}
@@ -1237,7 +1502,7 @@ export function IssueWorkspace() {
                   onClick={() => {
                     setView(nextView);
                     setFiltersOpen(nextView === "views");
-                    setIsDetailOpen(false);
+                    closeIssueDetails();
                   }}
                 >
                   {label}
@@ -1304,7 +1569,7 @@ export function IssueWorkspace() {
                         <header><StatusMark status={status} /><h2>{statusMeta[status].label}</h2><span>{columnTasks.length}</span></header>
                         {columnTasks.length ? columnTasks.map((task) => (
                           <article className="board-issue" key={task.id}>
-                            <button type="button" className="board-issue__open" onClick={() => { setSelectedIssueId(task.id); setIsDetailOpen(true); }}>
+                            <button type="button" className="board-issue__open" onClick={() => openIssueDetails(task)}>
                               <span className="board-issue__key">{getTaskKey(task)}</span>
                               <strong>{task.title}</strong>
                               <span>{task.project} · {task.assignee}</span>
@@ -1336,10 +1601,7 @@ export function IssueWorkspace() {
                       status={status}
                       tasks={tasks}
                       selectedTaskId={selectedIssueId}
-                      onSelect={(task) => {
-                        setSelectedIssueId(task.id);
-                        setIsDetailOpen(true);
-                      }}
+                      onSelect={openIssueDetails}
                       onEdit={openEditModal}
                     />
                   ))}
@@ -1363,7 +1625,58 @@ export function IssueWorkspace() {
 
         <WorkspaceSignature />
 
-        {isDetailOpen && selectedTask ? (
+        {invalidIssuePath || permalinkStatus === "not-found" ? (
+          <>
+            <button type="button" className="detail-backdrop" onClick={closeIssueDetails} aria-label="Back to issues" />
+            <aside className="detail-panel" aria-label="Issue not found">
+              <div className="detail-panel__topline"><span>ISSUE</span></div>
+              <h2>Issue not found</h2>
+              <p className="detail-panel__description">
+                This issue does not exist or you do not have access to it.
+              </p>
+              <button type="button" className="button-primary" onClick={closeIssueDetails}>Back to issues</button>
+            </aside>
+          </>
+        ) : issueRoute && (
+          permalinkStatus === "error" ||
+          workspaces.status === "error" ||
+          (permalinkStatus === "ready" && projectStatus === "error")
+        ) ? (
+          <>
+            <button type="button" className="detail-backdrop" onClick={closeIssueDetails} aria-label="Back to issues" />
+            <aside className="detail-panel" aria-label="Unable to open issue">
+              <div className="detail-panel__topline"><span>ISSUE</span></div>
+              <h2>Unable to open issue</h2>
+              <p className="detail-panel__description">Please try again.</p>
+              <button type="button" className="button-primary" onClick={() => {
+                setPermalinkRefresh((value) => value + 1);
+                setProjectRefresh((value) => value + 1);
+                void workspaces.refresh();
+              }}>Retry</button>
+              <button type="button" className="button-secondary" onClick={closeIssueDetails}>Back to issues</button>
+            </aside>
+          </>
+        ) : issueRoute && !isEditorOpen && (
+          permalinkStatus === "loading" ||
+          permalinkScope !== issueRouteScope ||
+          !isDetailOpen
+        ) ? (
+          <>
+            <span className="detail-backdrop" aria-hidden="true" />
+            <aside className="detail-panel" aria-label="Opening issue">
+              <div className="workspace-data-state" role="status">Opening issue…</div>
+            </aside>
+          </>
+        ) : null}
+
+        {issueRoute &&
+        permalinkStatus === "ready" &&
+        permalinkScope === issueRouteScope &&
+        workspaces.status === "ready" &&
+        projectStatus === "ready" &&
+        !isEditorOpen &&
+        isDetailOpen &&
+        selectedTask ? (
           <TaskDetailPanel
             key={selectedTask.id}
             task={selectedTask}
@@ -1372,7 +1685,9 @@ export function IssueWorkspace() {
             error={detailError}
             memberError={memberError}
             memberLoading={memberLoading}
-            onClose={() => setIsDetailOpen(false)}
+            copyState={copyLinkState}
+            onClose={closeIssueDetails}
+            onCopyLink={() => void copyIssueLink(selectedTask)}
             onEdit={() => openEditModal(selectedTask)}
             onSave={(input) => void saveIssueDetails(selectedTask, input)}
             onRetryMembers={() => setMemberRefresh((value) => value + 1)}
