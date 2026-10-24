@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildIssuePath, isIssuePath, parseIssuePath } from "./issue-routes.ts";
+import {
+  buildIssuePath,
+  ISSUE_NOT_FOUND_CONTENT,
+  isIssuePath,
+  issuePermalinkFailureState,
+  parseIssuePath,
+} from "./issue-routes.ts";
 
 const projectId = "6ed463d6-d31a-4a0e-a913-94130ab22fd4";
 
@@ -81,4 +87,31 @@ test("issue path building rejects values outside the persisted route domain", ()
       }),
     /Invalid issue route parameters/,
   );
+});
+
+test("all inaccessible and missing issue failures use identical safe page content", () => {
+  const cases = [
+    "organization non-member",
+    "nonexistent issue",
+    "cross-organization project",
+    "missing organization",
+    "missing project",
+    "invalid route coordinates",
+  ];
+  const expected = {
+    state: "not-found",
+    content: ISSUE_NOT_FOUND_CONTENT,
+  };
+
+  for (const name of cases) {
+    assert.deepEqual(
+      {
+        state: issuePermalinkFailureState(404),
+        content: ISSUE_NOT_FOUND_CONTENT,
+      },
+      expected,
+      name,
+    );
+  }
+  assert.equal(issuePermalinkFailureState(503), "error");
 });

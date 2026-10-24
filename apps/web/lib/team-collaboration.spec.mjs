@@ -64,6 +64,38 @@ test("authentication return paths allow only the required internal flows", () =>
   assert.equal(safeAuthReturnTo(null), "/");
 });
 
+test("authentication return paths reject external, backslash and encoded variants", () => {
+  const directUnsafePaths = [
+    "//attacker.example",
+    "https://attacker.example",
+    String.raw`\attacker.example`,
+    String.raw`\\attacker.example`,
+    String.raw`/\attacker.example`,
+  ];
+  const encodedQueryValues = [
+    "%2F%2Fattacker.example",
+    "%5C%5Cattacker.example",
+    "%2F%5Cattacker.example",
+    "https%3A%2F%2Fattacker.example",
+    "%252F%252Fattacker.example",
+    "%255C%255Cattacker.example",
+  ];
+
+  for (const value of directUnsafePaths) {
+    assert.equal(safeAuthReturnTo(value), "/", value);
+    assert.equal(loginPathFor(value), "/login", value);
+  }
+
+  for (const queryValue of encodedQueryValues) {
+    const decodedValue = new URLSearchParams(`returnTo=${queryValue}`).get(
+      "returnTo",
+    );
+    assert.notEqual(decodedValue, null, queryValue);
+    assert.equal(safeAuthReturnTo(decodedValue), "/", queryValue);
+    assert.equal(loginPathFor(decodedValue ?? ""), "/login", queryValue);
+  }
+});
+
 test("protected routes retain only safe issue paths through authentication", () => {
   const projectId = "6ed463d6-d31a-4a0e-a913-94130ab22fd4";
   assert.equal(loginPathFor("/"), "/login");

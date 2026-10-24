@@ -42,7 +42,9 @@ import {
 } from "../lib/workspace-data";
 import {
   buildIssuePath,
+  ISSUE_NOT_FOUND_CONTENT,
   isIssuePath,
+  issuePermalinkFailureState,
   parseIssuePath,
 } from "../lib/issue-routes";
 import Image from "next/image";
@@ -795,8 +797,8 @@ export function IssueWorkspace() {
           return;
         }
         setPermalinkStatus(
-          error instanceof ApiError && error.status === 404
-            ? "not-found"
+          error instanceof ApiError
+            ? issuePermalinkFailureState(error.status)
             : "error",
         );
       });
@@ -1628,11 +1630,11 @@ export function IssueWorkspace() {
         {invalidIssuePath || permalinkStatus === "not-found" ? (
           <>
             <button type="button" className="detail-backdrop" onClick={closeIssueDetails} aria-label="Back to issues" />
-            <aside className="detail-panel" aria-label="Issue not found">
+            <aside className="detail-panel" aria-label={ISSUE_NOT_FOUND_CONTENT.label}>
               <div className="detail-panel__topline"><span>ISSUE</span></div>
-              <h2>Issue not found</h2>
+              <h2>{ISSUE_NOT_FOUND_CONTENT.title}</h2>
               <p className="detail-panel__description">
-                This issue does not exist or you do not have access to it.
+                {ISSUE_NOT_FOUND_CONTENT.description}
               </p>
               <button type="button" className="button-primary" onClick={closeIssueDetails}>Back to issues</button>
             </aside>

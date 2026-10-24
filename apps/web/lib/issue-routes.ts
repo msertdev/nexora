@@ -11,6 +11,16 @@ export type IssueRouteParams = {
   issueNumber: number;
 };
 
+export const ISSUE_NOT_FOUND_CONTENT = {
+  label: "Issue not found",
+  title: "Issue not found",
+  description: "This issue does not exist or you do not have access to it.",
+} as const;
+
+export function issuePermalinkFailureState(status: number) {
+  return status === 404 ? "not-found" as const : "error" as const;
+}
+
 function decodePathSegment(value: string): string | null {
   try {
     return decodeURIComponent(value);
