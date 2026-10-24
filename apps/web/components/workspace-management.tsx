@@ -16,6 +16,7 @@ import {
 } from "../lib/api-client";
 import { useAuth } from "./auth-provider";
 import { useWorkspaces } from "./workspace-provider";
+import { useDialogFocus } from "../hooks/use-dialog-focus";
 import {
   canChangeMemberRole,
   canInviteRole,
@@ -23,35 +24,6 @@ import {
 } from "../lib/team-collaboration";
 
 type WorkspaceDialog = "create" | "members" | null;
-
-function useDialogDismiss(
-  onDismiss: () => void,
-  rootRef: React.RefObject<HTMLElement | null>,
-) {
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        onDismiss();
-      }
-      if (event.key === "Tab" && rootRef.current) {
-        const focusable = rootRef.current.querySelectorAll<HTMLElement>(
-          'button:not(:disabled), input:not(:disabled), [tabindex="0"]',
-        );
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last?.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first?.focus();
-        }
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onDismiss, rootRef]);
-}
 
 export function WorkspaceSwitcher({
   compact = false,
@@ -212,19 +184,7 @@ function DialogShell({
 }) {
   const dialogRef = useRef<HTMLElement>(null);
 
-  useDialogDismiss(onClose, dialogRef);
-  useEffect(() => {
-    const previousFocus =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    dialogRef.current
-      ?.querySelector<HTMLElement>(
-        'input:not(:disabled), button:not(:disabled), [tabindex="0"]',
-      )
-      ?.focus();
-    return () => previousFocus?.focus();
-  }, []);
+  useDialogFocus({ onDismiss: onClose, rootRef: dialogRef });
 
   return (
     <div
