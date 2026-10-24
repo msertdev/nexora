@@ -6,11 +6,13 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type RefObject,
   type ReactNode,
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useLocalStorage } from "../hooks/use-local-storage";
+import { useDialogFocus } from "../hooks/use-dialog-focus";
 import {
   apiClient,
   ApiError,
@@ -568,6 +570,7 @@ function TaskDetailPanel({
   onEdit,
   onSave,
   onRetryMembers,
+  panelRef,
 }: {
   task: ApiTask;
   members: OrganizationMember[];
@@ -586,6 +589,7 @@ function TaskDetailPanel({
     dueDate: string | null;
   }) => void;
   onRetryMembers: () => void;
+  panelRef: RefObject<HTMLElement | null>;
 }) {
   const [status, setStatus] = useState<IssueStatus>(toIssueStatus(task.status));
   const [priority, setPriority] = useState<IssuePriority>(toIssuePriority(task.priority));
@@ -594,8 +598,8 @@ function TaskDetailPanel({
 
   return (
     <>
-      <button type="button" className="detail-backdrop" onClick={onClose} aria-label="Close issue details" />
-      <aside className="detail-panel" aria-label="Issue details">
+      <button type="button" tabIndex={-1} className="detail-backdrop" onClick={onClose} aria-label="Close issue details" />
+      <aside ref={panelRef} className="detail-panel" role="dialog" aria-modal="true" aria-labelledby="issue-detail-title" tabIndex={-1}>
         <div className="detail-panel__topline">
           <span>{task.identifier}</span>
           <div>
@@ -611,7 +615,7 @@ function TaskDetailPanel({
               ? "Unable to copy issue link."
               : ""}
         </span>
-        <h2>{task.title}</h2>
+        <h2 id="issue-detail-title">{task.title}</h2>
         <p className="detail-panel__description">{task.description || "No description provided."}</p>
         <form className="detail-fields" onSubmit={(event) => {
           event.preventDefault();
@@ -699,6 +703,8 @@ export function IssueWorkspace() {
     error: string | null;
   }>({ organizationId: null, status: "loading", items: [], error: null });
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const issuePanelRef = useRef<HTMLElement>(null);
+  const issuePanelTriggerRef = useRef<HTMLElement>(null);
   const projectRequestId = useRef(0);
   const issueRequestId = useRef(0);
   const issueMutationRequestId = useRef(0);
@@ -1074,6 +1080,18 @@ export function IssueWorkspace() {
     (permalinkTask?.id === selectedIssueId ? permalinkTask : null) ??
     pageTasks.find((task) => task.id === selectedIssueId) ??
     null;
+  const issuePanelActive = !isEditorOpen && (invalidIssuePath || Boolean(issueRoute));
+  const issuePanelFocusKey = invalidIssuePath
+    ? "not-found"
+    : `${permalinkStatus}:${isDetailOpen ? "open" : "closed"}:${selectedTask?.id ?? "none"}`;
+
+  useDialogFocus({
+    active: issuePanelActive,
+    focusKey: issuePanelFocusKey,
+    onDismiss: closeIssueDetails,
+    returnFocusRef: issuePanelTriggerRef,
+    rootRef: issuePanelRef,
+  });
 
   function applySavedIssue(issue: Issue, scope: string) {
     setIssueState((current) => {
@@ -1102,6 +1120,9 @@ export function IssueWorkspace() {
   function openIssueDetails(task: ApiTask) {
     const organization = workspaces.selectedOrganization;
     if (!organization || typeof window === "undefined") return;
+    issuePanelTriggerRef.current = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
     const nextPath = buildIssuePath({
       organizationSlug: organization.slug,
       projectId: task.projectId,
@@ -1629,10 +1650,10 @@ export function IssueWorkspace() {
 
         {invalidIssuePath || permalinkStatus === "not-found" ? (
           <>
-            <button type="button" className="detail-backdrop" onClick={closeIssueDetails} aria-label="Back to issues" />
-            <aside className="detail-panel" aria-label={ISSUE_NOT_FOUND_CONTENT.label}>
+            <button type="button" tabIndex={-1} className="detail-backdrop" onClick={closeIssueDetails} aria-label="Back to issues" />
+            <aside ref={issuePanelRef} className="detail-panel" role="dialog" aria-modal="true" aria-labelledby="issue-not-found-title" tabIndex={-1}>
               <div className="detail-panel__topline"><span>ISSUE</span></div>
-              <h2>{ISSUE_NOT_FOUND_CONTENT.title}</h2>
+              <h2 id="issue-not-found-title">{ISSUE_NOT_FOUND_CONTENT.title}</h2>
               <p className="detail-panel__description">
                 {ISSUE_NOT_FOUND_CONTENT.description}
               </p>
@@ -1645,10 +1666,10 @@ export function IssueWorkspace() {
           (permalinkStatus === "ready" && projectStatus === "error")
         ) ? (
           <>
-            <button type="button" className="detail-backdrop" onClick={closeIssueDetails} aria-label="Back to issues" />
-            <aside className="detail-panel" aria-label="Unable to open issue">
+            <button type="button" tabIndex={-1} className="detail-backdrop" onClick={closeIssueDetails} aria-label="Back to issues" />
+            <aside ref={issuePanelRef} className="detail-panel" role="dialog" aria-modal="true" aria-labelledby="issue-error-title" tabIndex={-1}>
               <div className="detail-panel__topline"><span>ISSUE</span></div>
-              <h2>Unable to open issue</h2>
+              <h2 id="issue-error-title">Unable to open issue</h2>
               <p className="detail-panel__description">Please try again.</p>
               <button type="button" className="button-primary" onClick={() => {
                 setPermalinkRefresh((value) => value + 1);
@@ -1665,7 +1686,7 @@ export function IssueWorkspace() {
         ) ? (
           <>
             <span className="detail-backdrop" aria-hidden="true" />
-            <aside className="detail-panel" aria-label="Opening issue">
+            <aside ref={issuePanelRef} className="detail-panel" role="dialog" aria-modal="true" aria-label="Opening issue" tabIndex={-1}>
               <div className="workspace-data-state" role="status">Opening issue…</div>
             </aside>
           </>
@@ -1693,6 +1714,7 @@ export function IssueWorkspace() {
             onEdit={() => openEditModal(selectedTask)}
             onSave={(input) => void saveIssueDetails(selectedTask, input)}
             onRetryMembers={() => setMemberRefresh((value) => value + 1)}
+            panelRef={issuePanelRef}
           />
         ) : null}
       </div>
