@@ -6,6 +6,11 @@ overrides:
   # Next's ESLint plugin only uses globSync(..., { onlyDirectories: true }).
   # Keep this scoped replacement until it drops fast-glob's unpatched braces chain.
   '@next/eslint-plugin-next>fast-glob': npm:tinyglobby@0.2.17
+  # Keep patched transitive releases while upstream package ranges lag advisories.
+  'express>body-parser': 2.4.0
+  '@nestjs/platform-express>multer': 2.5.0
+  'ajv>fast-uri': 3.1.9
+  zod: 4.6.6
   nanoid@3: 3.3.18
   picomatch@2: 2.3.2
   source-map-js: 1.2.2
