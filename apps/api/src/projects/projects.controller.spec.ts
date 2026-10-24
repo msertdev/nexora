@@ -83,6 +83,93 @@ describe('Project and issue endpoints', () => {
   const projectsPath = `/api/organizations/${organizationId}/projects`;
   const issuesPath = `${projectsPath}/${projectId}/issues`;
   const issuePermalinkPath = `/api/organizations/by-slug/${organizationSlug}/projects/${projectId}/issues`;
+  const issueNotFoundResponse = {
+    statusCode: 404,
+    message: 'Issue not found',
+    error: 'Not Found',
+  };
+  const nonMemberUserId = 'dd3ed7a2-bf73-4a46-b21e-85b79b5c632c';
+  const missingProjectId = '8ea1bce4-8e04-47f0-83ba-f8cb582bf614';
+
+  type PermalinkNotFoundCase = {
+    name: string;
+    path: string;
+    sessionUserId?: string;
+    expectedQuery?: {
+      organizationSlug: string;
+      projectId: string;
+      issueNumber: number;
+    };
+  };
+
+  const permalinkNotFoundCases: PermalinkNotFoundCase[] = [
+    {
+      name: 'organization non-member',
+      path: `${issuePermalinkPath}/1`,
+      sessionUserId: nonMemberUserId,
+      expectedQuery: { organizationSlug, projectId, issueNumber: 1 },
+    },
+    {
+      name: 'missing issue',
+      path: `${issuePermalinkPath}/999`,
+      expectedQuery: { organizationSlug, projectId, issueNumber: 999 },
+    },
+    {
+      name: 'valid but missing project UUID',
+      path: `/api/organizations/by-slug/${organizationSlug}/projects/${missingProjectId}/issues/1`,
+      expectedQuery: {
+        organizationSlug,
+        projectId: missingProjectId,
+        issueNumber: 1,
+      },
+    },
+    {
+      name: 'missing organization slug',
+      path: `/api/organizations/by-slug/missing-team/projects/${projectId}/issues/1`,
+      expectedQuery: {
+        organizationSlug: 'missing-team',
+        projectId,
+        issueNumber: 1,
+      },
+    },
+    {
+      name: 'same project ID under another organization slug',
+      path: `/api/organizations/by-slug/another-team/projects/${projectId}/issues/1`,
+      expectedQuery: {
+        organizationSlug: 'another-team',
+        projectId,
+        issueNumber: 1,
+      },
+    },
+    {
+      name: 'invalid organization slug',
+      path: `/api/organizations/by-slug/invalid_slug/projects/${projectId}/issues/1`,
+    },
+    {
+      name: 'overlong organization slug',
+      path: `/api/organizations/by-slug/${'a'.repeat(84)}/projects/${projectId}/issues/1`,
+    },
+    {
+      name: 'invalid project UUID',
+      path: `/api/organizations/by-slug/${organizationSlug}/projects/not-a-uuid/issues/1`,
+    },
+    {
+      name: 'zero issue number',
+      path: `${issuePermalinkPath}/0`,
+    },
+    {
+      name: 'issue number with a leading zero',
+      path: `${issuePermalinkPath}/01`,
+    },
+    {
+      name: 'non-numeric issue number',
+      path: `${issuePermalinkPath}/not-a-number`,
+    },
+    {
+      name: 'issue number outside the persisted integer range',
+      path: `${issuePermalinkPath}/2147483648`,
+    },
+  ];
 
   beforeAll(async () => {
     const moduleFixture = await Test.createTestingModule({
@@ -381,82 +468,55 @@ describe('Project and issue endpoints', () => {
     expect(prismaMock.membership.findUnique).not.toHaveBeenCalled();
   });
 
-  it('returns the same not-found response for a non-member and a missing issue', async () => {
-    const nonMemberUserId = 'dd3ed7a2-bf73-4a46-b21e-85b79b5c632c';
-    prismaMock.session.findFirst.mockResolvedValueOnce({
-      id: 'non-member-session-id',
-      user: {
-        id: nonMemberUserId,
-        email: 'outsider@example.com',
-        name: 'Example Outsider',
-      },
-    });
-    prismaMock.issue.findFirst.mockResolvedValue(null);
+  it.each(permalinkNotFoundCases)(
+    'returns the shared safe not-found response for $name',
+    async ({ path, sessionUserId, expectedQuery }) => {
+      const requestUserId = sessionUserId ?? userId;
+      if (sessionUserId) {
+        prismaMock.session.findFirst.mockResolvedValueOnce({
+          id: 'alternate-session-id',
+          user: {
+            id: sessionUserId,
+            email: 'alternate@example.com',
+            name: 'Example Alternate User',
+          },
+        });
+      }
+      if (expectedQuery) {
+        prismaMock.issue.findFirst.mockResolvedValueOnce(null);
+      }
 
-    const inaccessible = await get(`${issuePermalinkPath}/1`);
-    const nonexistent = await get(`${issuePermalinkPath}/999`);
+      const response = await get(path);
 
-    expect(inaccessible.status).toBe(404);
-    expect(nonexistent.status).toBe(404);
-    expect(inaccessible.body).toEqual({
-      statusCode: 404,
-      message: 'Issue not found',
-      error: 'Not Found',
-    });
-    expect(nonexistent.body).toEqual(inaccessible.body);
-    expect(prismaMock.issue.findFirst).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        where: expect.objectContaining({
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual(issueNotFoundResponse);
+      expect(prismaMock.membership.findUnique).not.toHaveBeenCalled();
+
+      if (!expectedQuery) {
+        expect(prismaMock.issue.findFirst).not.toHaveBeenCalled();
+        return;
+      }
+
+      expect(prismaMock.issue.findFirst).toHaveBeenCalledOnce();
+      expect(prismaMock.issue.findFirst).toHaveBeenCalledWith({
+        where: {
+          issueNumber: expectedQuery.issueNumber,
           project: {
             is: {
-              id: projectId,
+              id: expectedQuery.projectId,
               organization: {
                 is: {
-                  slug: organizationSlug,
-                  memberships: { some: { userId: nonMemberUserId } },
+                  slug: expectedQuery.organizationSlug,
+                  memberships: { some: { userId: requestUserId } },
                 },
               },
             },
           },
-        }),
-      }),
-    );
-    expect(prismaMock.membership.findUnique).not.toHaveBeenCalled();
-  });
-
-  it('does not resolve the same project ID and issue number across organizations', async () => {
-    prismaMock.issue.findFirst.mockResolvedValueOnce(null);
-
-    await get(
-      `/api/organizations/by-slug/another-team/projects/${projectId}/issues/1`,
-    )
-      .expect(404)
-      .expect({
-        statusCode: 404,
-        message: 'Issue not found',
-        error: 'Not Found',
+        },
+        select: expect.any(Object),
       });
-
-    expect(prismaMock.issue.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          issueNumber: 1,
-          project: {
-            is: {
-              id: projectId,
-              organization: {
-                is: {
-                  slug: 'another-team',
-                  memberships: { some: { userId } },
-                },
-              },
-            },
-          },
-        }),
-      }),
-    );
-  });
+    },
+  );
 
   it('accepts the longest organization slug generated by collision suffixing', async () => {
     const collisionSlug = `${'a'.repeat(80)}-10`;
@@ -484,26 +544,16 @@ describe('Project and issue endpoints', () => {
     );
   });
 
-  it('returns the same safe not-found response for invalid permalink coordinates', async () => {
-    const invalidPaths = [
-      `/api/organizations/by-slug/invalid_slug/projects/${projectId}/issues/1`,
-      `/api/organizations/by-slug/${'a'.repeat(84)}/projects/${projectId}/issues/1`,
-      `/api/organizations/by-slug/${organizationSlug}/projects/not-a-uuid/issues/1`,
-      `${issuePermalinkPath}/0`,
-      `${issuePermalinkPath}/01`,
-      `${issuePermalinkPath}/not-a-number`,
-      `${issuePermalinkPath}/2147483648`,
-    ];
+  it('preserves service-unavailable semantics for permalink database failures', async () => {
+    prismaMock.issue.findFirst.mockRejectedValueOnce(
+      new Error('database unavailable'),
+    );
 
-    for (const path of invalidPaths) {
-      await get(path).expect(404).expect({
-        statusCode: 404,
-        message: 'Issue not found',
-        error: 'Not Found',
-      });
-    }
-
-    expect(prismaMock.issue.findFirst).not.toHaveBeenCalled();
+    await get(`${issuePermalinkPath}/1`).expect(503).expect({
+      statusCode: 503,
+      message: 'Issues unavailable',
+      error: 'Service Unavailable',
+    });
   });
 
   it('rejects invalid status, priority and non-member assignees', async () => {
@@ -578,5 +628,24 @@ describe('Project and issue endpoints', () => {
       }),
     );
     await get(`${issuesPath}?limit=1000`).expect(400);
+  });
+
+  it('applies the global rate limiter to issue permalink reads', async () => {
+    let lastStatus = 0;
+    let lastBody: unknown;
+
+    for (let attempt = 0; attempt <= 60; attempt += 1) {
+      const response = await get(`${issuePermalinkPath}/1`);
+      lastStatus = response.status;
+      lastBody = response.body;
+      if (lastStatus === 429) break;
+    }
+
+    expect(lastStatus).toBe(429);
+    expect(lastBody).toEqual(
+      expect.objectContaining({
+        statusCode: 429,
+      }),
+    );
   });
 });
