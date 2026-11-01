@@ -1,4 +1,4 @@
-FROM node:24-bookworm-slim AS base
+FROM node:26-bookworm-slim AS base
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
@@ -27,7 +27,7 @@ RUN apt-get update \
 COPY . .
 RUN pnpm install --prod --filter api --frozen-lockfile
 
-FROM node:24-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 ENV NODE_ENV="production"
 ENV PORT="4000"
 WORKDIR /workspace/apps/api
