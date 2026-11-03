@@ -86,8 +86,7 @@ Planned:
 - Comments.
 - Labels.
 - Notifications.
-- [TODO] Clarify the scope of a separate configurable board view. NEXORA
-  already includes the Roadmap status board shown above.
+- NEXORA AI Agent v1.
 
 ## Architecture
 
@@ -117,27 +116,19 @@ Caddy ── /api/* ──► NestJS API ──► PostgreSQL 17
 - A checkout of this repository.
 - Host ports `8080`, `8443`, `1026`, and `8026` available.
 
-From the repository root, copy the local example and set a new local-only
-PostgreSQL password. The password in `DATABASE_URL` must be the URL-encoded
-form of the same password. Keep the real environment file private.
+From the repository root, generate a local environment file with a fresh
+random database password, then start the isolated app and Mailpit:
 
 ```sh
-cp deploy/runtime.local.env.example deploy/runtime.env
-```
-
-For PowerShell:
-
-```powershell
-Copy-Item deploy/runtime.local.env.example deploy/runtime.env
-```
-
-Edit `deploy/runtime.env`, replacing the database password and its encoded
-value in `DATABASE_URL`. Start the isolated app and Mailpit:
-
-```sh
+node scripts/local-setup.mjs
 docker compose --env-file deploy/runtime.env -p nexora-local-test \
   -f compose.prod.yaml -f compose.local-test.yaml up -d --build
 ```
+
+The script copies `deploy/runtime.local.env.example` to `deploy/runtime.env`
+(git-ignored) and refuses to overwrite an existing file unless you pass
+`--force`. To configure it by hand instead, copy the example and replace the
+password and its URL-encoded value in `DATABASE_URL`.
 
 - App: <http://localhost:8080>
 - Mailpit inbox: <http://localhost:8026>
