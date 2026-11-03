@@ -19,9 +19,13 @@ details or a coordinated disclosure timeline.
 
 ## Supported versions
 
-No release has been published yet. Until a release policy is announced, report
-issues against the latest main-branch version and include the commit or
-container image tag.
+| Version         | Supported |
+| --------------- | --------- |
+| 0.1.x (preview) | Yes       |
+| main            | Yes       |
+
+Security fixes land on `main` and in the next 0.1.x release. Include the
+version, commit, or container image tag in your report.
 
 ## Deployment guidance
 
