@@ -214,10 +214,10 @@ workflow and its previous runs are available on the repository's
 
 ## Project status
 
-NEXORA is under active development. Self-hosting and the documented features
-are available, but this repository has not completed its first public release
-gates. Review the security policy and current release notes before operating
-an internet-facing instance.
+NEXORA is under active development. [v0.1.0](https://github.com/msertdev/nexora/releases/tag/v0.1.0)
+is the first preview release; see the [CHANGELOG](CHANGELOG.md). An independent
+human penetration test has not yet been completed, so review the security policy
+before operating an internet-facing instance.
 
 ## License
 
