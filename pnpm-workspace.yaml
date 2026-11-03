@@ -15,6 +15,7 @@ overrides:
   picomatch@2: 2.3.2
   source-map-js: 1.2.2
   sharp: 0.35.5
+  minimatch@10: 11.0.1
 allowBuilds:
   '@prisma/engines': true
   argon2: true
