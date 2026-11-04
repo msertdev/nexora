@@ -78,12 +78,12 @@ recording.
 Available today:
 
 - Issue list and detail views.
+- [Issue comments](docs/issue-comments.md) with author editing and administrator deletion.
 - A Roadmap status board backed by project issue data.
 - Organization membership and role management.
 
 Planned:
 
-- Comments.
 - Labels.
 - Notifications.
 - NEXORA AI Agent v1.

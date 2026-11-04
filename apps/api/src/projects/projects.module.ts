@@ -3,6 +3,8 @@ import { AuthModule } from '../auth/auth.module.js';
 import { OrganizationsModule } from '../organizations/organizations.module.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
 import { IssuePermalinksController } from './issue-permalinks.controller.js';
+import { CommentsController } from './comments.controller.js';
+import { CommentsService } from './comments.service.js';
 import { IssuesController } from './issues.controller.js';
 import { ProjectsController } from './projects.controller.js';
 import { ProjectsService } from './projects.service.js';
@@ -12,8 +14,9 @@ import { ProjectsService } from './projects.service.js';
   controllers: [
     ProjectsController,
     IssuesController,
+    CommentsController,
     IssuePermalinksController,
   ],
-  providers: [ProjectsService],
+  providers: [ProjectsService, CommentsService],
 })
 export class ProjectsModule {}
