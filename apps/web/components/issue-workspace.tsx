@@ -22,6 +22,7 @@ import {
   type OrganizationMember,
   type Project,
 } from "../lib/api-client";
+import { IssueComments } from "./issue-comments";
 import { useAuth } from "./auth-provider";
 import {
   CreateWorkspaceDialog,
@@ -571,7 +572,9 @@ function TaskDetailPanel({
   onSave,
   onRetryMembers,
   panelRef,
+  comments,
 }: {
+  comments: ReactNode;
   task: ApiTask;
   members: OrganizationMember[];
   saving: boolean;
@@ -630,6 +633,7 @@ function TaskDetailPanel({
           {error ? <p className="issue-form-error" role="alert">{error}</p> : null}
           <button type="submit" className="button-primary" disabled={saving}>{saving ? "Saving…" : "Save issue changes"}</button>
         </form>
+        {comments}
       </aside>
     </>
   );
@@ -1715,6 +1719,16 @@ export function IssueWorkspace() {
             onSave={(input) => void saveIssueDetails(selectedTask, input)}
             onRetryMembers={() => setMemberRefresh((value) => value + 1)}
             panelRef={issuePanelRef}
+            comments={userId && organizationId && selectedProject && workspaces.selectedOrganization ? (
+              <IssueComments
+                key={`${userId}:${organizationId}:${selectedProject.id}:${selectedTask.id}`}
+                organizationId={organizationId}
+                projectId={selectedProject.id}
+                issueId={selectedTask.id}
+                userId={userId}
+                role={workspaces.selectedOrganization.role}
+              />
+            ) : null}
           />
         ) : null}
       </div>
