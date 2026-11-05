@@ -88,6 +88,8 @@ Planned:
 - Notifications.
 - NEXORA AI Agent v1.
 
+The full plan with linked issues is in the [Roadmap issue](https://github.com/msertdev/nexora/issues/38).
+
 ## Architecture
 
 ```text
@@ -214,8 +216,8 @@ workflow and its previous runs are available on the repository's
 
 ## Project status
 
-NEXORA is under active development. [v0.1.0](https://github.com/msertdev/nexora/releases/tag/v0.1.0)
-is the first preview release; see the [CHANGELOG](CHANGELOG.md). An independent
+NEXORA is under active development. [v0.2.0](https://github.com/msertdev/nexora/releases/tag/v0.2.0)
+is the current preview release; see the [CHANGELOG](CHANGELOG.md). An independent
 human penetration test has not yet been completed, so review the security policy
 before operating an internet-facing instance.
 
