@@ -4,6 +4,20 @@ All notable changes to NEXORA are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-11-05
+
+### Added
+
+- Issue comments: a comment thread in the issue detail panel with paging,
+  create, edit and delete. Authors can edit their own comments; authors and
+  `ADMIN`/`OWNER` members can delete them. Additive database migration
+  `20261104000000_issue_comments` (#27, #34). Thanks @codekongdev!
+- Code of conduct for contributors.
+
+### Changed
+
+- Production dependencies updated (minor and patch releases).
+
 ## [0.1.0] - 2026-11-03
 
 First preview release. NEXORA is usable for self-hosted evaluation; an
@@ -32,4 +46,5 @@ independent human penetration test has not yet been completed (see
 - Dependency audit gate in CI with reviewed exceptions, CodeQL, secret
   scanning, and actions pinned to commit SHAs.
 
+[0.2.0]: https://github.com/msertdev/nexora/releases/tag/v0.2.0
 [0.1.0]: https://github.com/msertdev/nexora/releases/tag/v0.1.0
