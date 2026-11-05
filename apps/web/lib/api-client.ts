@@ -64,6 +64,20 @@ export type Issue = {
   project: { key: string };
 };
 
+export type IssueComment = {
+  id: string;
+  issueId: string;
+  authorId: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  author: Pick<SafeUser, "id" | "name">;
+};
+
+function commentsPath(organizationId: string, projectId: string, issueId: string) {
+  return `/api/organizations/${encodeURIComponent(organizationId)}/projects/${encodeURIComponent(projectId)}/issues/${encodeURIComponent(issueId)}/comments`;
+}
+
 export type PaginatedResponse<T> = {
   items: T[];
   page: number;
@@ -195,6 +209,24 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const apiClient = {
+  comments(organizationId: string, projectId: string, issueId: string, page = 1) {
+    return request<PaginatedResponse<IssueComment>>(
+      `${commentsPath(organizationId, projectId, issueId)}?page=${page}&limit=50`,
+    );
+  },
+  createComment(organizationId: string, projectId: string, issueId: string, body: string) {
+    return request<IssueComment>(commentsPath(organizationId, projectId, issueId), {
+      method: "POST", body: JSON.stringify({ body }),
+    });
+  },
+  updateComment(organizationId: string, projectId: string, issueId: string, commentId: string, body: string) {
+    return request<IssueComment>(`${commentsPath(organizationId, projectId, issueId)}/${encodeURIComponent(commentId)}`, {
+      method: "PATCH", body: JSON.stringify({ body }),
+    });
+  },
+  deleteComment(organizationId: string, projectId: string, issueId: string, commentId: string) {
+    return request<void>(`${commentsPath(organizationId, projectId, issueId)}/${encodeURIComponent(commentId)}`, { method: "DELETE" });
+  },
   login(input: AuthInput) {
     return request<SafeUser>("/api/auth/login", {
       method: "POST",

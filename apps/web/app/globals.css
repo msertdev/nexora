@@ -1072,3 +1072,26 @@ html[data-theme="light"] .workspace-dialog__form select { background: var(--surf
   .workspace-member__role-control select { max-width: 73px; }
   .workspace-member__remove { padding: 4px 0; }
 }
+/* Issue discussion shares the detail panel's existing theme tokens. */
+.issue-comments { margin-top: 24px; border-top: 1px solid var(--border); padding-top: 18px; color: var(--text); font-size: 12px; line-height: 1.6; }
+.issue-comments__header, .issue-comment > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.issue-comments__header h3 { margin: 0; font-size: 14px; font-weight: 600; }
+.issue-comments__header > span, .issue-comment time, .issue-comment > header > span { color: var(--muted); font-size: 11px; }
+.issue-comment { margin-top: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); min-width: 0; }
+.issue-comment > header strong { overflow-wrap: anywhere; }
+.issue-comment__body { margin: 8px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.issue-comments form { display: grid; gap: 8px; }
+.issue-comments label { display: block; font-weight: 500; }
+.issue-comments textarea { width: 100%; min-height: 96px; resize: vertical; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 14px; }
+.issue-comments textarea::placeholder { color: var(--muted); }
+.issue-comments :is(button, textarea):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.issue-comments button { min-height: 44px; white-space: normal; }
+.issue-comments button:disabled { opacity: 0.55; cursor: not-allowed; }
+.issue-comments__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.issue-comments__composer { margin-top: 20px; }
+.issue-comments__composer > button { justify-self: start; }
+.issue-comments__pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+.issue-comment__confirmation { margin-top: 8px; padding: 10px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 6px; }
+.issue-comment__confirmation p { margin: 0; }
+.issue-comments__notice { min-height: 1.6em; margin-bottom: 0; }
+@media (max-width: 600px) { .issue-comments textarea { font-size: 16px; } }
