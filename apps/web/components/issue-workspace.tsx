@@ -918,11 +918,7 @@ export function IssueWorkspace() {
       setIsDetailOpen(false);
     }
     setIsEditorOpen(false);
-    setPriorityFilter("");
-    setStatusFilter("");
-    setAssigneeFilter("");
     setSearchTerm("");
-    router.replace(pathname, { scroll: false });
   }, [issueRoute, organizationId, pathname, router, selectedProjectId]);
 
   useEffect(() => {
@@ -1155,6 +1151,15 @@ export function IssueWorkspace() {
         },
       };
     });
+  }
+
+  function clearIssueFilterQuery() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("priority");
+    params.delete("status");
+    params.delete("assignee");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
   }
 
   function updateFilterQuery(key: "priority" | "status" | "assignee", value: string) {
@@ -1510,6 +1515,10 @@ export function IssueWorkspace() {
               onProjectChange={(projectId) => {
                 if (!projects.some((project) => project.id === projectId)) return;
                 closeIssueDetails();
+                setPriorityFilter("");
+                setStatusFilter("");
+                setAssigneeFilter("");
+                clearIssueFilterQuery();
                 setSelectedProjectId(projectId);
                 if (userId && organizationId) {
                   storeProject(userId, organizationId, projectId);
@@ -1535,7 +1544,7 @@ export function IssueWorkspace() {
                 setStatusFilter("");
                 setAssigneeFilter("");
                 setPage(1);
-                router.replace(pathname, { scroll: false });
+                clearIssueFilterQuery();
               }}
               onCreateProject={() => {
                 setProjectFormError("");
