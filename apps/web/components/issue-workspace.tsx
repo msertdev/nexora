@@ -1006,7 +1006,7 @@ export function IssueWorkspace() {
       setSelectedIssueId(null);
       setIsDetailOpen(false);
     }
-  }, [issueRoute, page, priorityFilter, statusFilter, view]);
+  }, [assigneeFilter, issueRoute, page, priorityFilter, statusFilter, view]);
 
   useEffect(() => {
     if (!organizationId || !selectedProject || !userId) {
