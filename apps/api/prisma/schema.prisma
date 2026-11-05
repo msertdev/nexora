@@ -45,6 +45,7 @@ model User {
   updatedAt               DateTime                 @updatedAt @db.Timestamptz(6)
   memberships             Membership[]
   assignedIssues          Issue[]                  @relation("IssueAssignee")
+  comments                Comment[]
   sessions                Session[]
   invitationsSent         Invitation[]             @relation("InvitationInviter")
   emailVerificationTokens EmailVerificationToken[]
@@ -134,6 +135,7 @@ model Project {
 }
 
 model Issue {
+  comments    Comment[]
   id          String        @id @default(uuid()) @db.Uuid
   projectId   String        @db.Uuid
   issueNumber Int
@@ -152,4 +154,18 @@ model Issue {
   @@index([projectId, status])
   @@index([assigneeId])
   @@index([dueDate])
+}
+
+model Comment {
+  id        String   @id @default(uuid()) @db.Uuid
+  issueId   String   @db.Uuid
+  authorId  String   @db.Uuid
+  body      String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @db.Timestamptz(6)
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([issueId, createdAt, id])
+  @@index([authorId])
 }
