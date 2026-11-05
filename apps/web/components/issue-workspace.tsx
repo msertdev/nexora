@@ -922,8 +922,8 @@ export function IssueWorkspace() {
     setStatusFilter("");
     setAssigneeFilter("");
     setSearchTerm("");
-    if (searchParams.size > 0) router.replace(pathname, { scroll: false });
-  }, [issueRoute, organizationId, selectedProjectId]);
+    router.replace(pathname, { scroll: false });
+  }, [issueRoute, organizationId, pathname, router, selectedProjectId]);
 
   useEffect(() => {
     if (
@@ -1026,7 +1026,7 @@ export function IssueWorkspace() {
         limit: issueLimit,
         ...(statusFilter ? { status: statusFilter } : {}),
         ...(priorityFilter ? { priority: priorityFilter } : {}),
-        ...(assigneeFilter === "unassigned" ? { assigneeId: "" } : assigneeFilter ? { assigneeId: assigneeFilter } : {}),
+        ...(assigneeFilter && assigneeFilter !== "unassigned" ? { assigneeId: assigneeFilter } : {}),
         ...(view === "my-issues" ? { assigneeId: userId } : {}),
       })
       .then((data) => {
@@ -1113,9 +1113,10 @@ export function IssueWorkspace() {
           .join(" ")
           .toLowerCase()
           .includes(normalizedSearch);
-      return matchesSearch;
+      const matchesAssignee = !assigneeFilter || (assigneeFilter === "unassigned" ? !task.assigneeId : task.assigneeId === assigneeFilter);
+      return matchesSearch && matchesAssignee;
     });
-  }, [pageTasks, searchTerm]);
+  }, [assigneeFilter, pageTasks, searchTerm]);
 
   const groupedTasks = groupTasksByStatus(filteredTasks);
   const activeCount = filteredTasks.filter((task) => task.status !== "done").length;
