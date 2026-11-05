@@ -21,10 +21,11 @@ details or a coordinated disclosure timeline.
 
 | Version         | Supported |
 | --------------- | --------- |
-| 0.1.x (preview) | Yes       |
+| 0.2.x (preview) | Yes       |
+| 0.1.x (preview) | No        |
 | main            | Yes       |
 
-Security fixes land on `main` and in the next 0.1.x release. Include the
+Security fixes land on `main` and in the next 0.2.x release. Include the
 version, commit, or container image tag in your report.
 
 ## Deployment guidance
