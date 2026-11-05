@@ -9,7 +9,7 @@ import {
   type RefObject,
   type ReactNode,
 } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { useLocalStorage } from "../hooks/use-local-storage";
 import { useDialogFocus } from "../hooks/use-dialog-focus";
@@ -463,11 +463,17 @@ function IssueToolbar({
   selectedProjectId,
   priorityFilter,
   statusFilter,
+  assigneeFilter,
+  members,
+  memberLoading,
+  memberError,
   canCreateProject,
   onToggleFilters,
   onProjectChange,
   onPriorityChange,
   onStatusChange,
+  onAssigneeChange,
+  onClearFilters,
   onCreateProject,
   onCreate,
   onSearch,
@@ -483,11 +489,17 @@ function IssueToolbar({
   selectedProjectId: string;
   priorityFilter: string;
   statusFilter: string;
+  assigneeFilter: string;
+  members: OrganizationMember[];
+  memberLoading: boolean;
+  memberError: string | null;
   canCreateProject: boolean;
   onToggleFilters: () => void;
   onProjectChange: (value: string) => void;
   onPriorityChange: (value: string) => void;
   onStatusChange: (value: string) => void;
+  onAssigneeChange: (value: string) => void;
+  onClearFilters: () => void;
   onCreateProject: () => void;
   onCreate: () => void;
   onSearch: () => void;
@@ -552,6 +564,16 @@ function IssueToolbar({
               {issuePriorities.map((priority) => <option key={priority} value={priority}>{toTaskPriority(priority)}</option>)}
             </select>
           </label>
+          <label>
+            Assignee
+            <select value={assigneeFilter} onChange={(event) => onAssigneeChange(event.target.value)} disabled={memberLoading || Boolean(memberError)}>
+              <option value="">All assignees</option>
+              <option value="unassigned">Unassigned</option>
+              {members.map(({ user: member }) => <option key={member.id} value={member.id}>{member.name}</option>)}
+            </select>
+            {memberError ? <span role="status">Unable to load members. Close and reopen filters to retry.</span> : null}
+          </label>
+          <button type="button" className="filter-clear-button" onClick={onClearFilters} disabled={!priorityFilter && !statusFilter && !assigneeFilter}>Clear filters</button>
         </div>
       ) : null}
     </header>
@@ -644,6 +666,7 @@ export function IssueWorkspace() {
   const workspaces = useWorkspaces();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const issueRoute = useMemo(() => parseIssuePath(pathname), [pathname]);
   const issueRouteScope = issueRoute
     ? `${issueRoute.organizationSlug}:${issueRoute.projectId}:${issueRoute.issueNumber}`
@@ -660,8 +683,15 @@ export function IssueWorkspace() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [priorityFilter, setPriorityFilter] = useState<IssuePriority | "">("");
-  const [statusFilter, setStatusFilter] = useState<IssueStatus | "">("");
+  const [priorityFilter, setPriorityFilter] = useState<IssuePriority | "">(() => {
+    const value = searchParams.get("priority");
+    return issuePriorities.includes(value as IssuePriority) ? value as IssuePriority : "";
+  });
+  const [statusFilter, setStatusFilter] = useState<IssueStatus | "">(() => {
+    const value = searchParams.get("status");
+    return issueStatuses.includes(value as IssueStatus) ? value as IssueStatus : "";
+  });
+  const [assigneeFilter, setAssigneeFilter] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -736,7 +766,7 @@ export function IssueWorkspace() {
       ? `${userId}:${organizationId}:${selectedProject.id}`
       : "";
   const issueMutationScope =
-    `${issueScope}:${page}:${statusFilter}:${priorityFilter}:${view}`;
+    `${issueScope}:${page}:${statusFilter}:${priorityFilter}:${assigneeFilter}:${view}`;
   const currentIssues =
     issueState.scope === issueScope ? issueState.data : null;
   const issueStatus =
@@ -888,10 +918,8 @@ export function IssueWorkspace() {
       setIsDetailOpen(false);
     }
     setIsEditorOpen(false);
-    setPriorityFilter("");
-    setStatusFilter("");
     setSearchTerm("");
-  }, [issueRoute, organizationId, selectedProjectId]);
+  }, [issueRoute, organizationId, pathname, router, selectedProjectId]);
 
   useEffect(() => {
     if (
@@ -965,11 +993,20 @@ export function IssueWorkspace() {
   }, [issueMutationScope]);
 
   useEffect(() => {
+    const priority = searchParams.get("priority");
+    const status = searchParams.get("status");
+    const assignee = searchParams.get("assignee") ?? "";
+    setPriorityFilter(issuePriorities.includes(priority as IssuePriority) ? priority as IssuePriority : "");
+    setStatusFilter(issueStatuses.includes(status as IssueStatus) ? status as IssueStatus : "");
+    setAssigneeFilter(assignee);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!issueRoute) {
       setSelectedIssueId(null);
       setIsDetailOpen(false);
     }
-  }, [issueRoute, page, priorityFilter, statusFilter, view]);
+  }, [assigneeFilter, issueRoute, page, priorityFilter, statusFilter, view]);
 
   useEffect(() => {
     if (!organizationId || !selectedProject || !userId) {
@@ -985,6 +1022,7 @@ export function IssueWorkspace() {
         limit: issueLimit,
         ...(statusFilter ? { status: statusFilter } : {}),
         ...(priorityFilter ? { priority: priorityFilter } : {}),
+        ...(assigneeFilter && assigneeFilter !== "unassigned" ? { assigneeId: assigneeFilter } : {}),
         ...(view === "my-issues" ? { assigneeId: userId } : {}),
       })
       .then((data) => {
@@ -1016,6 +1054,7 @@ export function IssueWorkspace() {
     organizationId,
     page,
     priorityFilter,
+    assigneeFilter,
     selectedProject,
     setUser,
     statusFilter,
@@ -1024,7 +1063,7 @@ export function IssueWorkspace() {
   ]);
 
   useEffect(() => {
-    if ((!isEditorOpen && !isDetailOpen) || !organizationId) return;
+    if ((!isEditorOpen && !isDetailOpen && !filtersOpen) || !organizationId) return;
     const requestId = ++memberRequestId.current;
     setMemberState({ organizationId, status: "loading", items: [], error: null });
     void apiClient
@@ -1052,7 +1091,7 @@ export function IssueWorkspace() {
     return () => {
       memberRequestId.current += 1;
     };
-  }, [isDetailOpen, isEditorOpen, memberRefresh, organizationId, setUser]);
+  }, [filtersOpen, isDetailOpen, isEditorOpen, memberRefresh, organizationId, setUser]);
 
   useEffect(() => {
     if (isSearchOpen) searchInputRef.current?.focus();
@@ -1070,9 +1109,10 @@ export function IssueWorkspace() {
           .join(" ")
           .toLowerCase()
           .includes(normalizedSearch);
-      return matchesSearch;
+      const matchesAssignee = !assigneeFilter || (assigneeFilter === "unassigned" ? !task.assigneeId : task.assigneeId === assigneeFilter);
+      return matchesSearch && matchesAssignee;
     });
-  }, [pageTasks, searchTerm]);
+  }, [assigneeFilter, pageTasks, searchTerm]);
 
   const groupedTasks = groupTasksByStatus(filteredTasks);
   const activeCount = filteredTasks.filter((task) => task.status !== "done").length;
@@ -1113,10 +1153,28 @@ export function IssueWorkspace() {
     });
   }
 
+  function clearIssueFilterQuery() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("priority");
+    params.delete("status");
+    params.delete("assignee");
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }
+
+  function updateFilterQuery(key: "priority" | "status" | "assignee", value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) params.set(key, value);
+    else params.delete(key);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }
+
   function issueStillMatchesCurrentQuery(issue: Issue) {
     return (
       (!statusFilter || issue.status === statusFilter) &&
       (!priorityFilter || issue.priority === priorityFilter) &&
+      (!assigneeFilter || (assigneeFilter === "unassigned" ? !issue.assigneeId : issue.assigneeId === assigneeFilter)) &&
       (view !== "my-issues" || issue.assigneeId === userId)
     );
   }
@@ -1448,11 +1506,19 @@ export function IssueWorkspace() {
               selectedProjectId={selectedProject?.id ?? ""}
               priorityFilter={priorityFilter}
               statusFilter={statusFilter}
+              assigneeFilter={assigneeFilter}
+              members={members}
+              memberLoading={memberLoading}
+              memberError={memberError}
               canCreateProject={selectedProjectAllowed}
               onToggleFilters={() => setFiltersOpen((current) => !current)}
               onProjectChange={(projectId) => {
                 if (!projects.some((project) => project.id === projectId)) return;
                 closeIssueDetails();
+                setPriorityFilter("");
+                setStatusFilter("");
+                setAssigneeFilter("");
+                clearIssueFilterQuery();
                 setSelectedProjectId(projectId);
                 if (userId && organizationId) {
                   storeProject(userId, organizationId, projectId);
@@ -1461,10 +1527,24 @@ export function IssueWorkspace() {
               onPriorityChange={(value) => {
                 setPriorityFilter(value as IssuePriority | "");
                 setPage(1);
+                updateFilterQuery("priority", value);
               }}
               onStatusChange={(value) => {
                 setStatusFilter(value as IssueStatus | "");
                 setPage(1);
+                updateFilterQuery("status", value);
+              }}
+              onAssigneeChange={(value) => {
+                setAssigneeFilter(value);
+                setPage(1);
+                updateFilterQuery("assignee", value);
+              }}
+              onClearFilters={() => {
+                setPriorityFilter("");
+                setStatusFilter("");
+                setAssigneeFilter("");
+                setPage(1);
+                clearIssueFilterQuery();
               }}
               onCreateProject={() => {
                 setProjectFormError("");
